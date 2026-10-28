@@ -8,16 +8,48 @@ import { useDialogs } from "../dialogs";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Avatar, Card, EmptyState, Field, Popover, Select, cx, inputClass } from "../ui";
-import { AdminPage, Pager } from "./AdminPage";
+import { AdminPage, Pager, Segmented } from "./AdminPage";
 
 /*
  * Screenshots (admin only): filter by client, team member and date range, or open it for one task
  * or subtask (#/screenshots?task=<id> or ?subtask=<id>) from that item's page.
  * Images live in the private "snapshots" bucket; the page shows them through
- * short-lived signed links, one page of thumbnails at a time.
+ * short-lived signed links. Screenshots are grouped by clocking session under day headings;
+ * a collapsed session shows a few thumbnails spread across it.
  */
 
-const PER_PAGE = 24;
+const SESSIONS_PER_PAGE = 10;
+const DENSITY_KEY = "handysolver-screenshot-density";
+// Thumbnails shown on a collapsed session (spread evenly across it), per density.
+const PREVIEW = { compact: 8, large: 4 };
+const GRID = {
+  compact: "grid-cols-4 @lg:grid-cols-6 @3xl:grid-cols-8",
+  large: "grid-cols-2 @lg:grid-cols-3 @3xl:grid-cols-4",
+};
+
+/** `count` items spread evenly across `list` (first and last included). */
+function spread(list, count) {
+  if (list.length <= count) return list;
+  return Array.from({ length: count }, (_, i) => list[Math.round((i * (list.length - 1)) / (count - 1))]);
+}
+
+/** Quick date ranges: [from, to] as "YYYY-MM-DD". */
+function rangeFor(key, now = Date.now()) {
+  const today = toDateKey(now);
+  if (key === "today") return [today, today];
+  if (key === "yesterday") {
+    const y = toDateKey(addDays(fromDateKey(today), -1));
+    return [y, y];
+  }
+  if (key === "week") return [toDateKey(startOfWeek(now)), today];
+  return null;
+}
+
+function durationLabel(ms) {
+  const mins = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(mins / 60);
+  return h ? `${h}h ${String(mins % 60).padStart(2, "0")}m` : `${mins}m`;
+}
 
 export default function ScreenshotsPage() {
   const { state, teamEntries, allIndex: index, memberById, me } = useStore();
@@ -35,14 +67,42 @@ export default function ScreenshotsPage() {
   const [clientId, setClientId] = useState(() => scopeClient?.id ?? "");
   const [memberId, setMemberId] = useState("");
   const [subtaskId, setSubtaskId] = useState("");
-  const [from, setFrom] = useState(() => toDateKey(scope?.createdAt ?? startOfWeek(Date.now())));
+  // Today by default; from a task or subtask page, everything since it was created.
+  const [range, setRange] = useState(scope ? "custom" : "today");
+  const [from, setFrom] = useState(() => (scope ? toDateKey(scope.createdAt ?? startOfWeek(Date.now())) : toDateKey(Date.now())));
   const [to, setTo] = useState(() => toDateKey(Date.now()));
+  const [density, setDensity] = useState(() => {
+    try {
+      return localStorage.getItem(DENSITY_KEY) === "large" ? "large" : "compact";
+    } catch {
+      return "compact";
+    }
+  });
   const [page, setPage] = useState(0);
   const [shots, setShots] = useState(null); // null = loading
   const [error, setError] = useState("");
   const [urls, setUrls] = useState(new Map());
-  const [open, setOpen] = useState(null); // index into `filtered` shown large
+  const [expanded, setExpanded] = useState(new Set()); // session keys showing every screenshot
+  const [open, setOpen] = useState(null); // { key, i }: a session's screenshot shown large
   const { confirm, toast } = useDialogs();
+
+  const pickRange = (key) => {
+    setRange(key);
+    const r = rangeFor(key);
+    if (r) {
+      setFrom(r[0]);
+      setTo(r[1]);
+    }
+    setPage(0);
+  };
+  const pickDensity = (d) => {
+    setDensity(d);
+    try {
+      localStorage.setItem(DENSITY_KEY, d);
+    } catch {
+      /* remembered for this visit only */
+    }
+  };
 
   // Delete a screenshot (image + record) after confirming.
   const askDelete = (s) =>
@@ -76,7 +136,7 @@ export default function ScreenshotsPage() {
     };
   }, [memberId, from, to]);
 
-  // Client comes from the clocking the screenshot was taken during.
+  // Subtask, project and client come from the clocking the screenshot was taken during.
   const entryById = useMemo(() => new Map(teamEntries.map((e) => [e.id, e])), [teamEntries]);
   const filtered = useMemo(
     () =>
@@ -86,6 +146,7 @@ export default function ScreenshotsPage() {
           const chain = entry ? ancestry(index, entry.subtaskId) : [];
           return {
             ...s,
+            entry,
             chain,
             subtask: chain.find((x) => x.type === "subtask"),
             project: chain.find((x) => x.type === "project"),
@@ -100,6 +161,24 @@ export default function ScreenshotsPage() {
     [shots, entryById, index, clientId, subtaskId, scopeId, admin, me.id],
   );
 
+  // One session per clocking (clock in → clock out), newest first; its screenshots oldest first.
+  const sessions = useMemo(() => {
+    const byKey = new Map();
+    for (const s of filtered) {
+      const key = s.entryId ?? `${s.memberId}-${toDateKey(s.takenAt)}`;
+      if (!byKey.has(key)) byKey.set(key, { key, entry: s.entry, memberId: s.memberId, subtask: s.subtask, project: s.project, client: s.client, shots: [] });
+      byKey.get(key).shots.push(s);
+    }
+    return [...byKey.values()]
+      .map((x) => {
+        const shotsAsc = x.shots.sort((a, b) => a.takenAt - b.takenAt);
+        const start = x.entry?.start ?? shotsAsc[0].takenAt;
+        const end = x.entry ? x.entry.end : shotsAsc.at(-1).takenAt;
+        return { ...x, shots: shotsAsc, start, end, day: toDateKey(start) };
+      })
+      .sort((a, b) => b.start - a.start);
+  }, [filtered]);
+
   // Subtask choices: in the chosen client (and task scope); for team members, only ones assigned to them.
   const subtaskOptions = useMemo(
     () =>
@@ -112,13 +191,20 @@ export default function ScreenshotsPage() {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [state.items, admin, me.id, index, clientId, scopeId],
   );
-  const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
-  const visible = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
 
-  // Signed links for the thumbnails on this page.
-  const visibleKey = visible.map((s) => s.path).join("|");
+  const visibleSessions = sessions.slice(page * SESSIONS_PER_PAGE, (page + 1) * SESSIONS_PER_PAGE);
+  const shownShots = (x) => (expanded.has(x.key) ? x.shots : spread(x.shots, PREVIEW[density]));
+  // Visible sessions grouped under day headings.
+  const days = [];
+  for (const x of visibleSessions) {
+    if (days.at(-1)?.day !== x.day) days.push({ day: x.day, sessions: [] });
+    days.at(-1).sessions.push(x);
+  }
+
+  // Signed links for the thumbnails on screen.
+  const visibleKey = visibleSessions.flatMap((x) => shownShots(x).map((s) => s.path)).join("|");
   useEffect(() => {
-    const missing = visible.map((s) => s.path).filter((p) => !urls.has(p));
+    const missing = visibleKey ? visibleKey.split("|").filter((p) => !urls.has(p)) : [];
     if (!missing.length) return;
     let alive = true;
     snapshotUrls(missing)
@@ -130,10 +216,18 @@ export default function ScreenshotsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visibleKey]);
 
+  const toggle = (key) =>
+    setExpanded((old) => {
+      const next = new Set(old);
+      next.has(key) ? next.delete(key) : next.add(key);
+      return next;
+    });
   const resetPage = (fn) => (e) => {
     fn(e.target.value);
     setPage(0);
   };
+  const viewing = open ? sessions.find((x) => x.key === open.key) : null;
+  const viewingShot = viewing?.shots[open.i];
 
   return (
     <AdminPage title={admin ? "Screenshots" : "My screenshots"} everyone>
@@ -153,6 +247,20 @@ export default function ScreenshotsPage() {
             </button>
           </div>
         )}
+        {/* Quick ranges */}
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Segmented
+            label="Date range"
+            value={range}
+            onChange={pickRange}
+            options={[
+              ["today", "Today"],
+              ["yesterday", "Yesterday"],
+              ["week", "This week"],
+              ["custom", "Custom"],
+            ]}
+          />
+        </div>
         <div className={cx("grid gap-3 @lg:grid-cols-2", admin ? "@4xl:grid-cols-5" : "@3xl:grid-cols-4")}>
           <Field label="Client">
             <Select
@@ -184,78 +292,141 @@ export default function ScreenshotsPage() {
             </Field>
           )}
           <Field label="From">
-            <input type="date" value={from} max={to} onChange={resetPage(setFrom)} className={inputClass} />
+            <input type="date" value={from} max={to} onChange={resetPage((v) => (setFrom(v), setRange("custom")))} className={inputClass} />
           </Field>
           <Field label="To">
-            <input type="date" value={to} min={from} onChange={resetPage(setTo)} className={inputClass} />
+            <input type="date" value={to} min={from} onChange={resetPage((v) => (setTo(v), setRange("custom")))} className={inputClass} />
           </Field>
         </div>
       </Card>
 
       <Card className="p-4 @md:p-5">
-        <div className="mb-4 flex items-center justify-between gap-2">
-          <p className="text-sm font-bold text-stone-700">{shots == null ? "Loading…" : `${filtered.length} screenshot${filtered.length === 1 ? "" : "s"}`}</p>
-          <Pager page={page} total={filtered.length} perPage={PER_PAGE} onPage={setPage} />
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-bold text-stone-700">
+            {shots == null
+              ? "Loading…"
+              : `${filtered.length} screenshot${filtered.length === 1 ? "" : "s"} · ${sessions.length} session${sessions.length === 1 ? "" : "s"}`}
+          </p>
+          <div className="flex items-center gap-2">
+            <Segmented label="Thumbnail size" value={density} onChange={pickDensity} options={[["compact", "Compact"], ["large", "Large"]]} />
+            <Pager page={page} total={sessions.length} perPage={SESSIONS_PER_PAGE} onPage={setPage} />
+          </div>
         </div>
         {error && <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        {shots != null && !filtered.length ? (
+        {shots != null && !sessions.length ? (
           <EmptyState icon={Camera} title="No screenshots for these filters" />
         ) : (
-          <ul className="grid grid-cols-2 gap-3 @lg:grid-cols-3 @3xl:grid-cols-4">
-            {visible.map((s, i) => (
-              <li key={s.id} className="group/shot relative">
-                {/* Delete (admin): shows on hover (and keyboard focus) */}
-                {admin && (
-                <button
-                  type="button"
-                  onClick={() => askDelete(s)}
-                  aria-label={`Delete screenshot from ${formatDate(s.takenAt)} ${formatTime(s.takenAt)}`}
-                  title="Delete screenshot"
-                  className="absolute top-2 right-2 z-10 grid size-8 place-items-center rounded-xl bg-white/95 text-red-600 opacity-0 shadow-soft ring-1 ring-stone-900/10 transition group-hover/shot:opacity-100 hover:bg-red-600 hover:text-white focus-visible:opacity-100"
-                >
-                  <Trash className="size-4" />
-                </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setOpen(page * PER_PAGE + i)}
-                  className="group block w-full overflow-hidden rounded-2xl bg-stone-50 text-left ring-1 ring-stone-900/5 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-brand-200"
-                >
-                  <Thumb url={urls.get(s.path)} />
-                  <span className="flex items-center gap-2 p-2.5">
-                    <Avatar member={memberById.get(s.memberId)} size="xs" />
-                    <span className="min-w-0 flex-1" title={s.chain.length ? s.chain.map((x) => x.name).join(" › ") : undefined}>
-                      {/* Subtask (Project) */}
-                      <span className="block truncate text-xs font-bold text-stone-800">
-                        {s.subtask?.name ?? "Deleted subtask"}
-                        {s.project && <span className="font-medium text-stone-500"> ({s.project.name})</span>}
-                      </span>
-                      <span className="block truncate text-[11px] text-stone-500">
-                        {formatDate(s.takenAt)} · {formatTime(s.takenAt)}
-                      </span>
-                    </span>
-                  </span>
-                </button>
-              </li>
+          <div className="space-y-6">
+            {days.map(({ day, sessions: list }) => (
+              <section key={day}>
+                <h3 className="mb-2 text-xs font-extrabold tracking-widest text-stone-400 uppercase">
+                  {formatDate(day, { weekday: "short", day: "numeric", month: "short" })}
+                </h3>
+                <ul className="space-y-3">
+                  {list.map((x) => {
+                    const member = memberById.get(x.memberId);
+                    const isOpen = expanded.has(x.key);
+                    const shown = shownShots(x);
+                    const hidden = x.shots.length - shown.length;
+                    return (
+                      <li key={x.key} className="rounded-2xl bg-stone-50/80 p-3 ring-1 ring-stone-900/5">
+                        {/* Session: who, what (subtask + project), when, how long, how many */}
+                        <button type="button" onClick={() => toggle(x.key)} aria-expanded={isOpen} className="group mb-2.5 flex w-full items-center gap-3 text-left">
+                          <Avatar member={member} size="sm" />
+                          <span className="min-w-0 flex-1" title={x.client ? `${x.client.name} › ${x.project?.name ?? ""} › ${x.subtask?.name ?? ""}` : undefined}>
+                            <span className="block truncate text-sm font-bold text-stone-800">
+                              {admin && <span className="text-stone-500">{member?.name ?? "Someone"} · </span>}
+                              {x.subtask?.name ?? "Deleted subtask"}
+                              {x.project && <span className="font-medium text-stone-500"> ({x.project.name})</span>}
+                            </span>
+                            <span className="block truncate text-xs text-stone-500">
+                              {formatTime(x.start)}–{x.end ? formatTime(x.end) : "now"} · {durationLabel((x.end ?? Date.now()) - x.start)}
+                              {x.end == null && <span className="ml-1.5 inline-block size-1.5 animate-pulse-dot rounded-full bg-emerald-500 align-middle" />}
+                            </span>
+                          </span>
+                          <span className="shrink-0 rounded-full bg-surface px-2.5 py-1 text-xs font-bold text-stone-600 ring-1 ring-stone-200">
+                            {x.shots.length} <Camera className="mb-0.5 inline size-3.5 text-stone-400" />
+                          </span>
+                          <ChevronDown className={cx("size-4 shrink-0 text-stone-400 transition-transform group-hover:text-stone-700", isOpen && "rotate-180")} />
+                        </button>
+                        <ul className={cx("grid gap-2", GRID[density])}>
+                          {shown.map((s, i) => {
+                            const last = !isOpen && hidden > 0 && i === shown.length - 1;
+                            return (
+                              <li key={s.id} className="group/shot relative">
+                                {/* Delete (admin): shows on hover (and keyboard focus) */}
+                                {admin && !last && (
+                                  <button
+                                    type="button"
+                                    onClick={() => askDelete(s)}
+                                    aria-label={`Delete screenshot from ${formatDate(s.takenAt)} ${formatTime(s.takenAt)}`}
+                                    title="Delete screenshot"
+                                    className="absolute top-1.5 right-1.5 z-10 grid size-7 place-items-center rounded-lg bg-white/95 text-red-600 opacity-0 shadow-soft ring-1 ring-stone-900/10 transition group-hover/shot:opacity-100 hover:bg-red-600 hover:text-white focus-visible:opacity-100"
+                                  >
+                                    <Trash className="size-3.5" />
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => (last ? toggle(x.key) : setOpen({ key: x.key, i: x.shots.indexOf(s) }))}
+                                  className="group relative block w-full overflow-hidden rounded-xl bg-stone-100 text-left ring-1 ring-stone-900/5 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-brand-200"
+                                >
+                                  <Thumb url={urls.get(s.path)} />
+                                  {last ? (
+                                    // The last preview tile opens the rest of the session.
+                                    <span className="absolute inset-0 grid place-items-center bg-stone-900/60 text-white">
+                                      <span className="text-center leading-tight">
+                                        <span className="block text-lg font-extrabold">+{hidden + 1}</span>
+                                        <span className="text-[11px] font-semibold">Show all</span>
+                                      </span>
+                                    </span>
+                                  ) : (
+                                    <span
+                                      className={cx(
+                                        "palette-fixed absolute bottom-1 left-1 rounded-md bg-black/60 px-1.5 py-0.5 font-semibold text-white tabular-nums",
+                                        density === "compact" ? "text-[10px]" : "text-xs",
+                                      )}
+                                    >
+                                      {formatTime(s.takenAt)}
+                                    </span>
+                                  )}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        {isOpen && x.shots.length > PREVIEW[density] && (
+                          <button type="button" onClick={() => toggle(x.key)} className="mt-2 text-xs font-bold text-brand-700 hover:underline">
+                            Show fewer
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
             ))}
-          </ul>
+          </div>
         )}
       </Card>
 
-      {open != null && filtered[open] && (
+      {viewingShot && (
         <Viewer
-          shot={filtered[open]}
-          url={urls.get(filtered[open].path)}
-          member={memberById.get(filtered[open].memberId)}
+          shot={viewingShot}
+          url={urls.get(viewingShot.path)}
+          member={memberById.get(viewingShot.memberId)}
           onClose={() => setOpen(null)}
-          onPrev={open > 0 ? () => setOpen(open - 1) : null}
-          onNext={open < filtered.length - 1 ? () => setOpen(open + 1) : null}
+          onPrev={open.i > 0 ? () => setOpen({ ...open, i: open.i - 1 }) : null}
+          onNext={open.i < viewing.shots.length - 1 ? () => setOpen({ ...open, i: open.i + 1 }) : null}
           needUrl={(path) => !urls.has(path) && snapshotUrls([path]).then((m) => setUrls((old) => new Map([...old, ...m])))}
-          onDelete={admin ? () => {
-            const s = filtered[open];
-            setOpen(null); // close the viewer so the confirmation shows on top
-            askDelete(s);
-          } : null}
+          onDelete={
+            admin
+              ? () => {
+                  setOpen(null); // close the viewer so the confirmation shows on top
+                  askDelete(viewingShot);
+                }
+              : null
+          }
         />
       )}
     </AdminPage>
