@@ -147,8 +147,8 @@ export default function TeamPage() {
                         Remove
                       </Button>
                     )}
-                    {/* Anyone can be deleted, admins included (even yourself), as long as one admin is left. */}
-                    {!(m.isAdmin && adminCount <= 1) && (
+                    {/* Team members can be deleted; an admin only deletes their own account (and not if they're the last admin). */}
+                    {(!m.isAdmin || (self && adminCount > 1)) && (
                       <Button
                         size="sm"
                         variant="dangerGhost"
