@@ -10,6 +10,7 @@ import { BILLING_LABEL, assigneesOf, billingOf, entryBilling, entrySeconds, isDo
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import ClientHoursCard from "./ClientHoursCard";
+import ClientCyclesCard from "./ClientCyclesCard";
 import WorkloadCard from "./WorkloadCard";
 import { Hero, HeroStat, StatTile } from "./DashboardParts";
 import { Avatar, Button, Card, EmptyState, IconChip, Select, cx } from "../ui";
@@ -363,6 +364,9 @@ export default function AdminDashboard() {
         <ClientHoursCard entries={teamEntries} now={now} />
         <LiveNow team={team} entries={teamEntries} now={now} />
       </div>
+
+      {/* Full width: billable hours in each billing cycle, one client at a time */}
+      <ClientCyclesCard entries={teamEntries} now={now} />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
         <WorkloadCard />

@@ -1,5 +1,5 @@
-import { fromDateKey } from "../lib/time";
-import { dayBefore, entryBilling, workingDays } from "./model";
+import { fromDateKey, toDateKey } from "../lib/time";
+import { addMonthsKey, dayBefore, entryBilling, workingDays } from "./model";
 
 /*
  * Numbers behind the Client hours card, for one client's current billing cycle.
@@ -71,6 +71,36 @@ export function cycleStats({ cycle, entries, index, holidays = new Set(), now = 
     expected, pace, neededPerDay, neededPerWeek: Math.min(left, neededPerDay * 5),
     status, endingSoon, byMember, prevUsed,
   };
+}
+
+/**
+ * Billable hours in each of a client's billing cycles, oldest first, up to and including the current one
+ * (at most `max`). `entries` are clockings on this client's work.
+ * Each row: { start, end, seconds, nonBillable, current, upcoming }.
+ */
+export function cycleHistory({ client, entries, index, now = Date.now(), today, max = 12 }) {
+  if (!client?.budgetHours) return [];
+  const months = client.cycleMonths || 1;
+  const first = client.cycleStart || toDateKey(client.createdAt ?? now);
+  const billable = entries.filter((e) => entryBilling(index, e) === "billable");
+  const other = entries.filter((e) => entryBilling(index, e) !== "billable");
+  const rows = [];
+  for (let k = 0; ; k++) {
+    const start = addMonthsKey(first, k * months);
+    if (k > 0 && start > today) break;
+    const end = dayBefore(addMonthsKey(first, (k + 1) * months));
+    const [from, to] = [dayStart(start), dayEnd(end)];
+    rows.push({
+      start,
+      end,
+      seconds: secondsIn(billable, from, to, now),
+      nonBillable: secondsIn(other, from, to, now),
+      current: start <= today && today <= end,
+      upcoming: start > today,
+    });
+    if (start > today) break; // first cycle hasn't started yet
+  }
+  return rows.slice(-max);
 }
 
 /** Most urgent first: over, behind, ending soon, on track, ahead, upcoming. */
