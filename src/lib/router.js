@@ -8,7 +8,7 @@ function parse() {
 }
 
 /** Pages only the admin sees in the sidebar. */
-export const ADMIN_PAGES = ["timesheets", "reports", "screenshots", "archive"];
+export const ADMIN_PAGES = ["team", "timesheets", "reports", "screenshots", "archive"];
 
 /** Tiny hash router: #/page/id?key=value */
 export function useRoute() {

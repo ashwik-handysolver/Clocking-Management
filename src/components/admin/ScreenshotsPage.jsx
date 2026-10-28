@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, ChevronLeft, ChevronRight, ImageOff, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ImageOff, Trash, X } from "lucide-react";
 import { addDays, formatDate, formatTime, fromDateKey, startOfWeek, toDateKey } from "../../lib/time";
 import { navigate, openItem, useRoute } from "../../lib/router";
 import { ancestry, pathLabel, workingMembers } from "../../store/model";
-import { listSnapshots, snapshotUrls } from "../../store/db";
+import { deleteSnapshot, listSnapshots, snapshotUrls } from "../../store/db";
+import { useDialogs } from "../dialogs";
+import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Avatar, Card, EmptyState, Field, Select, cx, inputClass } from "../ui";
 import { AdminPage, Pager } from "./AdminPage";
@@ -18,7 +20,9 @@ import { AdminPage, Pager } from "./AdminPage";
 const PER_PAGE = 24;
 
 export default function ScreenshotsPage() {
-  const { state, teamEntries, allIndex: index, memberById } = useStore();
+  const { state, teamEntries, allIndex: index, memberById, me } = useStore();
+  // The admin sees (and can delete) everyone's; a team member sees only their own (the database enforces this too).
+  const admin = isAdmin(me);
   const clients = state.items.filter((i) => i.type === "client").sort((a, b) => a.name.localeCompare(b.name));
   const team = workingMembers(state.members, state.items, teamEntries);
 
@@ -37,6 +41,26 @@ export default function ScreenshotsPage() {
   const [error, setError] = useState("");
   const [urls, setUrls] = useState(new Map());
   const [open, setOpen] = useState(null); // index into `filtered` shown large
+  const { confirm, toast } = useDialogs();
+
+  // Delete a screenshot (image + record) after confirming.
+  const askDelete = (s) =>
+    confirm({
+      title: "Delete this screenshot?",
+      message: `The screenshot from ${memberById.get(s.memberId)?.name ?? "this team member"} taken ${formatDate(s.takenAt)} at ${formatTime(s.takenAt)} will be permanently deleted. This can't be undone.`,
+      confirmLabel: "Delete screenshot",
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await deleteSnapshot(s);
+          setShots((list) => list.filter((x) => x.id !== s.id));
+          setOpen(null);
+          toast("Screenshot deleted");
+        } catch (err) {
+          toast(`Couldn't delete: ${err.message ?? err}`, "error");
+        }
+      },
+    });
 
   // Load the records for the member + date range from Supabase.
   useEffect(() => {
@@ -89,7 +113,7 @@ export default function ScreenshotsPage() {
   };
 
   return (
-    <AdminPage title="Screenshots">
+    <AdminPage title={admin ? "Screenshots" : "My screenshots"} everyone>
       <Card className="p-4 @md:p-5">
         {scope && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl bg-brand-50 px-3 py-2 text-sm">
@@ -106,13 +130,15 @@ export default function ScreenshotsPage() {
             </button>
           </div>
         )}
-        <div className="grid gap-3 @xl:grid-cols-4">
+        <div className={cx("grid gap-3", admin ? "@xl:grid-cols-4" : "@xl:grid-cols-3")}>
           <Field label="Client">
             <Select value={clientId} onChange={resetPage(setClientId)} options={[{ value: "", label: "All clients" }, ...clients.map((c) => ({ value: c.id, label: c.name }))]} />
           </Field>
-          <Field label="Team member">
-            <Select value={memberId} onChange={resetPage(setMemberId)} options={[{ value: "", label: "Everyone" }, ...team.map((m) => ({ value: m.id, label: m.name }))]} />
-          </Field>
+          {admin && (
+            <Field label="Team member">
+              <Select value={memberId} onChange={resetPage(setMemberId)} options={[{ value: "", label: "Everyone" }, ...team.map((m) => ({ value: m.id, label: m.name }))]} />
+            </Field>
+          )}
           <Field label="From">
             <input type="date" value={from} max={to} onChange={resetPage(setFrom)} className={inputClass} />
           </Field>
@@ -133,7 +159,19 @@ export default function ScreenshotsPage() {
         ) : (
           <ul className="grid grid-cols-2 gap-3 @lg:grid-cols-3 @3xl:grid-cols-4">
             {visible.map((s, i) => (
-              <li key={s.id}>
+              <li key={s.id} className="group/shot relative">
+                {/* Delete (admin): shows on hover (and keyboard focus) */}
+                {admin && (
+                <button
+                  type="button"
+                  onClick={() => askDelete(s)}
+                  aria-label={`Delete screenshot from ${formatDate(s.takenAt)} ${formatTime(s.takenAt)}`}
+                  title="Delete screenshot"
+                  className="absolute top-2 right-2 z-10 grid size-8 place-items-center rounded-xl bg-white/95 text-red-600 opacity-0 shadow-soft ring-1 ring-stone-900/10 transition group-hover/shot:opacity-100 hover:bg-red-600 hover:text-white focus-visible:opacity-100"
+                >
+                  <Trash className="size-4" />
+                </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setOpen(page * PER_PAGE + i)}
@@ -165,6 +203,11 @@ export default function ScreenshotsPage() {
           onPrev={open > 0 ? () => setOpen(open - 1) : null}
           onNext={open < filtered.length - 1 ? () => setOpen(open + 1) : null}
           needUrl={(path) => !urls.has(path) && snapshotUrls([path]).then((m) => setUrls((old) => new Map([...old, ...m])))}
+          onDelete={admin ? () => {
+            const s = filtered[open];
+            setOpen(null); // close the viewer so the confirmation shows on top
+            askDelete(s);
+          } : null}
         />
       )}
     </AdminPage>
@@ -185,7 +228,7 @@ function Thumb({ url }) {
 }
 
 /** One screenshot, large, with previous/next (arrow keys too). */
-function Viewer({ shot, url, member, onClose, onPrev, onNext, needUrl }) {
+function Viewer({ shot, url, member, onClose, onPrev, onNext, needUrl, onDelete }) {
   useEffect(() => {
     needUrl(shot.path);
     const onKey = (e) => {
@@ -209,6 +252,9 @@ function Viewer({ shot, url, member, onClose, onPrev, onNext, needUrl }) {
             {shot.subtask?.name ?? "Subtask"} · {formatDate(shot.takenAt, { weekday: "short", day: "numeric", month: "short" })} {formatTime(shot.takenAt)}
           </p>
         </div>
+        {onDelete && <button type="button" onClick={onDelete} aria-label="Delete screenshot" title="Delete screenshot" className="grid size-10 place-items-center rounded-full bg-white/10 text-red-300 hover:bg-red-600 hover:text-white">
+          <Trash className="size-5" />
+        </button>}
         <button type="button" onClick={onClose} aria-label="Close" className="grid size-10 place-items-center rounded-full bg-white/10 hover:bg-white/20">
           <X className="size-5" />
         </button>

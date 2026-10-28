@@ -32,11 +32,18 @@ export const canDeleteItem = (user, item, hasTime = false) =>
  */
 export const isAssignedByOther = (user, item) =>
   item?.type === "subtask" && (item.assignees ?? []).includes(user.id) && item.assignedBy !== user.id;
-export const canEditDetails = (user, item) => isAdmin(user) || !isAssignedByOther(user, item);
+/**
+ * Subtask details (name, dates, assignees…): the admin or whoever assigned it.
+ * Everyone else — including people only viewing someone else's subtask — can't edit them.
+ */
+export const canEditDetails = (user, item) => isAdmin(user) || item?.type !== "subtask" || item.assignedBy === user.id;
 
-/** Subtasks are visible to their assignees and whoever assigned them (and the admin); clients, projects and tasks are shared. */
-export const canSeeItem = (user, item) =>
-  isAdmin(user) || item.type !== "subtask" || item.assignedBy === user.id || (item.assignees ?? []).includes(user.id);
+/** Status: also the subtask's assignees. People just viewing someone else's subtask can't change it. */
+export const canChangeStatus = (user, item) =>
+  isAdmin(user) || item?.type !== "subtask" || item.assignedBy === user.id || (item.assignees ?? []).includes(user.id);
+
+/** Everyone sees all clients, projects, tasks and subtasks (only assignees can clock in, see canClockOn). */
+export const canSeeItem = () => true;
 
 /** Only people assigned to a subtask can clock time on it. */
 export const canClockOn = (user, subtask) =>
@@ -61,4 +68,4 @@ export const canMoveEntryBilling = (user) => isAdmin(user);
 export const canEditAssignees = (user, item) => canEditDetails(user, item);
 
 /** Subtasks go to any team member, yourself included. Nobody assigns work to the admin, except the admin to themself. */
-export const assignableMembers = (members, user) => members.filter((m) => !m.isAdmin || (isAdmin(user) && m.id === user?.id));
+export const assignableMembers = (members, user) => members.filter((m) => !m.removedAt && (!m.isAdmin || (isAdmin(user) && m.id === user?.id)));

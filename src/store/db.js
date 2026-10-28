@@ -16,8 +16,12 @@ const iso = (v) => (v == null ? null : new Date(v).toISOString());
 
 const memberFrom = (r) => ({
   id: r.id, authUserId: r.auth_user_id, name: r.name, role: r.role, email: r.email, color: r.color, isAdmin: r.is_admin,
+  removedAt: r.removed_at ? Date.parse(r.removed_at) : null, createdAt: ms(r.created_at),
 });
-const memberTo = (m) => ({ id: m.id, name: m.name, role: m.role ?? "", email: m.email, color: m.color });
+const memberTo = (m) => ({
+  id: m.id, name: m.name, role: m.role ?? "", email: m.email, color: m.color, removed_at: m.removedAt ? iso(m.removedAt) : null,
+  is_admin: !!m.isAdmin, // only takes effect when the admin changes someone else (database guard)
+});
 
 const itemFrom = (r) => ({
   id: r.id, type: r.type, parentId: r.parent_id, name: r.name, description: r.description, status: r.status ?? undefined,
@@ -196,4 +200,33 @@ export async function saveHoliday(day, name) {
 
 export async function deleteHoliday(day) {
   check(await supabase.from("holidays").delete().eq("day", day));
+}
+/** Admin: delete a screenshot — the image in the bucket and its record. */
+export async function deleteSnapshot({ id, path }) {
+  const removed = await supabase.storage.from("snapshots").remove([path]);
+  if (removed.error) throw removed.error;
+  const gone = check(await supabase.from("snapshots").delete().eq("id", id).select("id"));
+  if (!gone.length) throw new Error("you don't have permission to delete screenshots");
+}
+
+/* ---------- Team (admin) ---------- */
+
+/** Admin: remove someone — deletes their sign-in, keeps their past time (profile marked removed). */
+/**
+ * Admin: delete someone's account for good — their sign-in, profile, logged time and screenshots.
+ * Screenshot images are removed from the bucket first (the database can't delete stored files).
+ */
+export async function deleteMemberAccount(memberId) {
+  const shots = check(await supabase.from("snapshots").select("storage_path").eq("member_id", memberId));
+  for (let i = 0; i < shots.length; i += 100) {
+    const { error } = await supabase.storage.from("snapshots").remove(shots.slice(i, i + 100).map((s) => s.storage_path));
+    if (error) throw error;
+  }
+  const { error } = await supabase.rpc("admin_delete_member", { p_member: memberId });
+  if (error) throw error;
+}
+
+export async function removeMember(memberId) {
+  const { error } = await supabase.rpc("admin_remove_member", { p_member: memberId });
+  if (error) throw error;
 }

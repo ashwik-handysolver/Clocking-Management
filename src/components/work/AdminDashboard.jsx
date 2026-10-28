@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Activity, ArrowRight, BadgeDollarSign, CircleSlash, Clock, PencilLine, Plus, Radio, Square, Timer, TriangleAlert, Users,
+  Activity, ArrowRight, BadgeDollarSign, CircleSlash, Clock, PencilLine, Plus, Radio, Timer, TriangleAlert, Users,
 } from "lucide-react";
 import { Legend, StackedBars } from "../charts";
 import { useNow } from "../../hooks/useNow";
@@ -49,18 +49,7 @@ function SectionTitle({ icon, title, children }) {
 
 /** Who is clocked in right now, ticking every second. */
 function LiveNow({ team, entries, now }) {
-  const { allIndex: index, actions } = useStore();
-  const { confirm, toast } = useDialogs();
-  const stop = (m, e) =>
-    confirm({
-      title: `Stop ${m.name.split(" ")[0]}'s timer?`,
-      message: `It has been running since ${formatTime(e.start)} (${formatHours(entrySeconds(e, Date.now()))}). Use this when someone forgot to clock out. It's recorded in the change history.`,
-      confirmLabel: "Stop timer",
-      onConfirm: () => {
-        actions.stopMemberTimer(m.id);
-        toast("Timer stopped");
-      },
-    });
+  const { allIndex: index } = useStore();
   const running = new Map(entries.filter((e) => e.end == null).map((e) => [e.memberId, e]));
   const lastEnd = (id) => Math.max(0, ...entries.filter((e) => e.memberId === id && e.end).map((e) => e.end));
   // Clocked-in people first, longest session on top.
@@ -100,7 +89,6 @@ function LiveNow({ team, entries, now }) {
                   <span className="block text-[11px] text-stone-400">since {formatTime(e.start)}</span>
                 </span>
               )}
-              {e && <Button size="xs" variant="ghost" iconOnly icon={Square} aria-label={`Stop ${m.name}'s timer`} title="Stop timer" onClick={() => stop(m, e)} />}
             </li>
           );
         })}

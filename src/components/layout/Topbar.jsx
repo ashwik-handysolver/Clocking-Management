@@ -14,7 +14,7 @@ import CommandPalette from "./CommandPalette";
 import { desktopNotificationsOn, desktopPermission, setDesktopNotifications } from "../Notifications";
 import { Logo } from "./Sidebar";
 
-const PAGE_TITLE = { my: "My work", dashboard: "Dashboard", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive" };
+const PAGE_TITLE = { my: "My work", dashboard: "Dashboard", team: "Team", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive" };
 
 /** HH:MM:SS where each digit rolls up when it changes. */
 function RollingClock({ seconds }) {

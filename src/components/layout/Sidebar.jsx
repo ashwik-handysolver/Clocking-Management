@@ -17,14 +17,14 @@ const NAV = [
   { icon: LayoutDashboard, label: "Dashboard", page: "dashboard" },
   { icon: ListTodo, label: "My work", page: "my" },
   { icon: FolderKanban, label: "Clients & Projects", page: "work" },
-  { icon: Users, label: "Team" },
+  { icon: Camera, label: "Screenshots", page: "screenshots" },
 ];
 
 // Shown only to the admin, under their own heading.
 const ADMIN_NAV = [
+  { icon: Users, label: "Team", page: "team" },
   { icon: CalendarRange, label: "Timesheets", page: "timesheets" },
   { icon: FileBarChart, label: "Reports", page: "reports" },
-  { icon: Camera, label: "Screenshots", page: "screenshots" },
   { icon: Archive, label: "Archive", page: "archive" },
 ];
 

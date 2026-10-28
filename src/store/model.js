@@ -268,6 +268,6 @@ export function clientCycle(client, today = todayKey()) {
  */
 export function workingMembers(members, items = [], entries = []) {
   return members.filter(
-    (m) => !m.isAdmin || entries.some((e) => e.memberId === m.id) || items.some((i) => i.type === "subtask" && (i.assignees ?? []).includes(m.id)),
+    (m) => !m.removedAt && (!m.isAdmin || entries.some((e) => e.memberId === m.id) || items.some((i) => i.type === "subtask" && (i.assignees ?? []).includes(m.id))),
   );
 }

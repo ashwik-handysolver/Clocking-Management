@@ -3,10 +3,10 @@ import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Button, Card, EmptyState, cx } from "../ui";
 
-/** Frame for admin-only pages: a heading, an optional action, and a guard for everyone else. */
-export function AdminPage({ title, text, action, children }) {
+/** Page frame: a heading and an optional action. Admin-only unless `everyone` is set (then each page limits what it shows). */
+export function AdminPage({ title, text, action, everyone = false, children }) {
   const { me } = useStore();
-  if (!isAdmin(me)) {
+  if (!everyone && !isAdmin(me)) {
     return (
       <Card>
         <EmptyState icon={ShieldCheck} title="Admins only" />

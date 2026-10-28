@@ -82,7 +82,19 @@ export function PriorityLabel({ priority, compact }) {
 }
 
 /** Coloured pill that opens the shared dropdown — quick inline edits. */
-export function PillSelect({ value, options, onChange, styleFor, label, className }) {
+export function PillSelect({ value, options, onChange, styleFor, label, className, readOnly, readOnlyTitle }) {
+  // Read-only: the same pill, without the menu (e.g. someone else's subtask).
+  if (readOnly) {
+    return (
+      <span
+        title={readOnlyTitle}
+        onClick={(e) => e.stopPropagation()}
+        className={cx("inline-flex items-center rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap", styleFor?.(value) ?? "bg-stone-100 text-stone-700", className)}
+      >
+        {value}
+      </span>
+    );
+  }
   return (
     <Listbox
       label={label}

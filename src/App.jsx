@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import ArchivePage from "./components/admin/ArchivePage";
 import ScreenshotsPage from "./components/admin/ScreenshotsPage";
+import TeamPage from "./components/admin/TeamPage";
 import Reports from "./components/admin/Reports";
 import Timesheets from "./components/admin/Timesheets";
 import { ClockProvider } from "./components/clock";
@@ -62,7 +63,7 @@ function useStoredFlag(key) {
 
 const PAGES = ["my", "dashboard", "work", ...ADMIN_PAGES];
 const PAGE_TITLE = {
-  my: "My work", dashboard: "Dashboard", work: "Clients & Projects", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive",
+  my: "My work", dashboard: "Dashboard", work: "Clients & Projects", team: "Team", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive",
 };
 
 function Shell() {
@@ -116,7 +117,7 @@ function Shell() {
 
         {ADMIN_PAGES.includes(page) ? (
           <main className="mt-5">
-            {page === "timesheets" ? <Timesheets /> : page === "reports" ? <Reports /> : page === "screenshots" ? <ScreenshotsPage /> : <ArchivePage />}
+            {page === "team" ? <TeamPage /> : page === "timesheets" ? <Timesheets /> : page === "reports" ? <Reports /> : page === "screenshots" ? <ScreenshotsPage /> : <ArchivePage />}
           </main>
         ) : page === "my" ? (
           <main className="mt-5">

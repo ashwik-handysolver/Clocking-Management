@@ -3,7 +3,7 @@ import { ChevronDown, ExternalLink, Folder, Pencil, Plus } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { dueInfo, formatHours } from "../../lib/time";
 import { BILLING_LABEL, CHILD_TYPE, billingOf, statusChoices, TYPE_LABEL, assigneesOf, hasAssignee, isDone, isWork, progressOf } from "../../store/model";
-import { canEditDetails } from "../../store/permissions";
+import { canChangeStatus, canEditDetails } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Segmented } from "../admin/AdminPage";
 import { useDialogs } from "../dialogs";
@@ -27,7 +27,7 @@ export default function ChildrenList({ item, billing, seconds }) {
   const children = index
     .childrenOf(item.id)
     .filter((c) => !byBilling || billingOf(index, c.id) === billing)
-    .filter((c) => !subtasks || (who === "by" ? c.assignedBy === me.id : (c.assignees ?? []).includes(me.id)));
+    .filter((c) => !subtasks || who === "all" || (who === "by" ? c.assignedBy === me.id : (c.assignees ?? []).includes(me.id)));
   const tabs = subtasks && (
     <Segmented
       label="Subtasks"
@@ -36,6 +36,7 @@ export default function ChildrenList({ item, billing, seconds }) {
       options={[
         ["to", "Assigned to me"],
         ["by", "Assigned by me"],
+        ["all", "All"],
       ]}
     />
   );
@@ -48,7 +49,7 @@ export default function ChildrenList({ item, billing, seconds }) {
       {tabs}
       <EmptyState
         icon={TYPE_ICON[childType]}
-        title={subtasks ? (who === "by" ? "No subtasks assigned by you" : "No subtasks assigned to you") : `No ${label}s yet`}
+        title={subtasks ? (who === "all" ? "No subtasks yet" : who === "by" ? "No subtasks assigned by you" : "No subtasks assigned to you") : `No ${label}s yet`}
         action={
           <Button variant="primary" size="sm" icon={Plus} onClick={add}>
             Add {label}
@@ -126,6 +127,8 @@ export default function ChildrenList({ item, billing, seconds }) {
                   )}
                   <PillSelect
                     label="Status"
+                    readOnly={!canChangeStatus(me, c)}
+                    readOnlyTitle="You can view this subtask but not change it"
                     value={c.status}
                     options={statusChoices(c.status)}
                     styleFor={(s) => STATUS_STYLE[s]?.pill}

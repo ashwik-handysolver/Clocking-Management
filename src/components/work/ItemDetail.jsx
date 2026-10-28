@@ -171,8 +171,8 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
               )}
             </div>
             <div className="flex shrink-0 gap-1.5">
-              {/* Admin: this task's (or subtask's) screenshots, on the Screenshots page. */}
-              {isAdmin(me) && (item.type === "task" || item.type === "subtask") && (
+              {/* This task's (or subtask's) screenshots: everyone's for the admin, your own for team members. */}
+              {(item.type === "task" || item.type === "subtask") && (
                 <Button size="sm" variant="soft" icon={Camera} onClick={() => navigate("screenshots", null, { [item.type]: item.id })}>
                   View screenshots
                 </Button>

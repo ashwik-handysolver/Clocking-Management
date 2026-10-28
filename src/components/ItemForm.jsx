@@ -151,10 +151,10 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
     } else {
       const newId = actions.addItem({ type, ...fields });
       if (isSubtask && !values.assignees.includes(me.id)) {
-        // Subtasks are only visible to their assignees, so stay on the task.
+        // Assigned to someone else: stay on the task.
         const names = values.assignees.map((id) => state.members.find((m) => m.id === id)?.name.split(" ")[0]).join(", ");
         openItem(fields.parentId);
-        toast(`Subtask assigned to ${names} — only they can see it`);
+        toast(`Subtask assigned to ${names}`);
       } else {
         openItem(newId);
         toast(`${TYPE_LABEL[type]} created`);
