@@ -12,6 +12,7 @@ import { useDialogs } from "../dialogs";
 import { Avatar, Button, Popover, cx } from "../ui";
 import CommandPalette from "./CommandPalette";
 import AddSubtaskWizard from "../AddSubtaskWizard";
+import NotificationBell from "./NotificationBell";
 import { desktopNotificationsOn, desktopPermission, sendTestNotification, setDesktopNotifications } from "../Notifications";
 import { Logo } from "./Sidebar";
 
@@ -218,6 +219,7 @@ export default function Topbar({ newType, selectedId, page, onOpenMenu }) {
               <span className="hidden sm:inline">New</span>
             </Button>
           )}
+          <NotificationBell />
           <ProfileMenu />
         </div>
       </header>

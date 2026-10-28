@@ -84,7 +84,13 @@ export default function ScreenshotsPage() {
         .map((s) => {
           const entry = entryById.get(s.entryId);
           const chain = entry ? ancestry(index, entry.subtaskId) : [];
-          return { ...s, chain, subtask: chain.find((x) => x.type === "subtask"), client: chain.find((x) => x.type === "client") };
+          return {
+            ...s,
+            chain,
+            subtask: chain.find((x) => x.type === "subtask"),
+            project: chain.find((x) => x.type === "project"),
+            client: chain.find((x) => x.type === "client"),
+          };
         })
         // Team members: only screenshots from subtasks they're assigned to.
         .filter((s) => admin || (s.subtask && assigneesOf(s.subtask).includes(me.id)))
@@ -218,8 +224,12 @@ export default function ScreenshotsPage() {
                   <Thumb url={urls.get(s.path)} />
                   <span className="flex items-center gap-2 p-2.5">
                     <Avatar member={memberById.get(s.memberId)} size="xs" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-xs font-bold text-stone-800">{s.client?.name ?? "Unknown client"}</span>
+                    <span className="min-w-0 flex-1" title={s.chain.length ? s.chain.map((x) => x.name).join(" › ") : undefined}>
+                      {/* Subtask (Project) */}
+                      <span className="block truncate text-xs font-bold text-stone-800">
+                        {s.subtask?.name ?? "Deleted subtask"}
+                        {s.project && <span className="font-medium text-stone-500"> ({s.project.name})</span>}
+                      </span>
                       <span className="block truncate text-[11px] text-stone-500">
                         {formatDate(s.takenAt)} · {formatTime(s.takenAt)}
                       </span>
@@ -348,7 +358,8 @@ function Viewer({ shot, url, member, onClose, onPrev, onNext, needUrl, onDelete 
             {member?.name ?? "Someone"} · {shot.client?.name ?? "Unknown client"}
           </p>
           <p className="truncate text-xs text-white/60">
-            {shot.subtask?.name ?? "Subtask"} · {formatDate(shot.takenAt, { weekday: "short", day: "numeric", month: "short" })} {formatTime(shot.takenAt)}
+            {shot.subtask?.name ?? "Subtask"}
+            {shot.project ? ` (${shot.project.name})` : ""} · {formatDate(shot.takenAt, { weekday: "short", day: "numeric", month: "short" })} {formatTime(shot.takenAt)}
           </p>
         </div>
         {onDelete && <button type="button" onClick={onDelete} aria-label="Delete screenshot" title="Delete screenshot" className="grid size-10 place-items-center rounded-full bg-white/10 text-red-300 hover:bg-red-600 hover:text-white">

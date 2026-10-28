@@ -20,7 +20,8 @@ export const supabaseConfigured = Boolean(url && key);
  */
 export const openedFromRecoveryLink = /type=recovery/.test(window.location.hash + window.location.search);
 
-export const supabase = supabaseConfigured ? createClient(url, key) : null;
+// Realtime heartbeats run in a web worker, so the live connection survives when Chrome slows down a background tab.
+export const supabase = supabaseConfigured ? createClient(url, key, { realtime: { worker: true } }) : null;
 
 /** Quick check that the URL and key work: asks the auth server for its settings. */
 export async function checkSupabaseConnection() {

@@ -15,7 +15,10 @@ import { useDialogs } from "./dialogs";
 
 const CATCH_UP_SHOWN = 3; // older unread ones are summarised in one toast
 
-const markRead = (ids) => ids.length && supabase.from("notifications").update({ read_at: new Date().toISOString() }).in("id", ids).then(() => {});
+// shown_at: its pop-up was shown (so it isn't shown again at next sign-in). read_at is set by the header bell.
+const markShown = (ids) => ids.length && supabase.from("notifications").update({ shown_at: new Date().toISOString() }).in("id", ids).then(() => {});
+export const markRead = (ids) =>
+  ids.length && supabase.from("notifications").update({ read_at: new Date().toISOString() }).in("id", ids).is("read_at", null).then(() => {});
 
 /** Desktop notifications: supported, and what the browser says ("default" = not asked yet). */
 export function desktopPermission() {
@@ -74,8 +77,12 @@ export function sendTestNotification(delayMs = 5000) {
   }, delayMs);
 }
 
+/** You're looking at the app right now: its tab is showing and its window has focus. */
+const lookingAtApp = () => document.visibilityState === "visible" && document.hasFocus();
+
 function showDesktop(n) {
-  if (!desktopNotificationsOn() || document.visibilityState === "visible") return;
+  // Another tab, another app, or a minimised window: notify on the desktop.
+  if (!desktopNotificationsOn() || lookingAtApp()) return;
   try {
     const note = new Notification(n.title, { body: n.body || "Open Clockwork to start working on it", tag: `n-${n.id}` });
     note.onclick = () => {
@@ -106,32 +113,56 @@ export default function Notifications() {
       showDesktop(n);
     };
 
-    // 1. What arrived while you were signed out.
-    supabase
-      .from("notifications")
-      .select("*")
-      .eq("member_id", me.id)
-      .is("read_at", null)
-      .order("created_at", { ascending: false })
-      .limit(50)
-      .then(({ data }) => {
-        if (!alive || !data?.length) return;
-        data.slice(0, CATCH_UP_SHOWN).reverse().forEach(show);
-        if (data.length > CATCH_UP_SHOWN) toast(`…and ${data.length - CATCH_UP_SHOWN} more subtasks were assigned to you while you were away`, "notify", { detail: "See them in My work" });
-        markRead(data.map((n) => n.id));
-      });
+    // Anything not shown yet: at sign-in, and as a safety net if the live connection missed something.
+    let checking = false;
+    const catchUp = async (firstTime = false) => {
+      if (checking) return;
+      checking = true;
+      const { data } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("member_id", me.id)
+        .is("shown_at", null)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      checking = false;
+      const missed = (data ?? []).filter((n) => !seen.current.has(n.id));
+      if (!alive || !missed.length) return;
+      const shown = firstTime ? missed.slice(0, CATCH_UP_SHOWN) : missed;
+      shown.reverse().forEach(show);
+      if (firstTime && missed.length > CATCH_UP_SHOWN)
+        toast(`…and ${missed.length - CATCH_UP_SHOWN} more subtasks were assigned to you while you were away`, "notify", { detail: "See them all under the bell" });
+      missed.forEach((n) => seen.current.add(n.id));
+      markShown(missed.map((n) => n.id));
+    };
+    catchUp(true);
 
-    // 2. New ones, live.
+    // New ones, live. After a dropped connection comes back, check for anything missed meanwhile.
+    let connectedOnce = false;
     const channel = supabase
       .channel(`notifications-${me.id}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `member_id=eq.${me.id}` }, ({ new: n }) => {
         show(n);
-        markRead([n.id]);
+        markShown([n.id]);
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") return;
+        if (connectedOnce) catchUp();
+        connectedOnce = true;
+      });
+
+    // Safety net: every 30 seconds (Chrome may slow this to once a minute in a background tab),
+    // and whenever you come back to the tab or the network returns.
+    const poll = setInterval(() => catchUp(), 30_000);
+    const onBack = () => catchUp();
+    document.addEventListener("visibilitychange", onBack);
+    window.addEventListener("online", onBack);
 
     return () => {
       alive = false;
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onBack);
+      window.removeEventListener("online", onBack);
       supabase.removeChannel(channel);
     };
   }, [me?.id, toast]);
