@@ -301,13 +301,21 @@ export function StoreProvider({ children }) {
     return () => data.subscription.unsubscribe();
   }, [reload]);
 
-  // Live updates: reload (debounced) whenever any table changes.
+  // Live updates: reload whenever any table changes. One action (e.g. clocking in) changes several
+  // tables at once, so changes are gathered and reloaded together: within a second while you're
+  // looking at the tab, and at most every 15 s while it's in the background (it still has to notice,
+  // say, its timer being stopped elsewhere, to stop screen sharing).
   useEffect(() => {
     if (status !== "ready") return;
-    let timer;
+    let timer = null;
     const off = subscribeAll(() => {
+      const visible = document.visibilityState === "visible";
+      if (timer && !visible) return; // background: one reload per 15 s is enough
       clearTimeout(timer);
-      timer = setTimeout(reload, 300);
+      timer = setTimeout(() => {
+        timer = null;
+        reload();
+      }, visible ? 1000 : 15_000);
     });
     // After sleep or a dropped connection, live updates may have been missed: refresh when the tab
     // comes back into view or the network returns.

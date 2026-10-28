@@ -41,10 +41,13 @@ function RollingClock({ seconds }) {
   );
 }
 
-/** Timer icon with a soft radar ping and a ring that fills once a minute. */
-function ClockBadge({ startSeconds }) {
-  // Start the minute ring where the timer actually is (negative delay), once per entry.
-  const [delay] = useState(() => `-${Math.floor(startSeconds % 60)}s`);
+/**
+ * Timer icon with a soft radar ping and a ring that fills once a minute.
+ * The ring moves one step per second with the clock (the header re-renders every second anyway),
+ * rather than a CSS animation that would redraw it ~60 times a second for as long as you're clocked in.
+ */
+function ClockBadge({ seconds }) {
+  const offset = 100 - ((Math.floor(seconds) % 60) / 60) * 100;
   return (
     <span className="relative hidden size-9 shrink-0 place-items-center sm:grid">
       <span className="absolute inset-0 animate-ping-soft rounded-full bg-white/40 motion-reduce:animate-none" />
@@ -58,8 +61,8 @@ function ClockBadge({ startSeconds }) {
           strokeDasharray="100"
           strokeLinecap="round"
           strokeWidth="3"
-          className="animate-minute fill-none stroke-white motion-reduce:animate-none"
-          style={{ animationDelay: delay }}
+          strokeDashoffset={offset}
+          className="fill-none stroke-white"
         />
       </svg>
       <Timer className="relative size-4" strokeWidth={2.5} />
@@ -97,7 +100,7 @@ function TimerPill() {
           <span className="absolute inset-0 animate-ping-soft rounded-full bg-surface motion-reduce:animate-none" />
           <span className="absolute inset-0 rounded-full bg-surface" />
         </span>
-        <ClockBadge key={running.id} startSeconds={elapsed} />
+        <ClockBadge seconds={elapsed} />
         <span className="hidden min-w-0 text-left leading-tight lg:block">
           <span className="block text-[10px] font-extrabold tracking-widest text-white/75 uppercase">Clocked in</span>
           <span className="block max-w-36 truncate text-xs font-semibold">{sub?.name}</span>

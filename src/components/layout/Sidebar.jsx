@@ -154,6 +154,26 @@ export default function Sidebar({ pinnedOpen, onTogglePinned, mobileOpen, onClos
   // On phones the drawer is always full width with labels visible.
   const showLabels = expanded || mobileOpen;
 
+  // Scrolling over the sidebar never scrolls the page behind it: the wheel only moves a part of the
+  // sidebar that can still scroll that way; otherwise it does nothing.
+  const asideRef = useRef(null);
+  useEffect(() => {
+    const aside = asideRef.current;
+    if (!aside) return;
+    const onWheel = (e) => {
+      for (let el = e.target; el && el !== aside; el = el.parentElement) {
+        const { overflowY } = getComputedStyle(el);
+        if ((overflowY === "auto" || overflowY === "scroll") && el.scrollHeight > el.clientHeight) {
+          const canScroll = e.deltaY < 0 ? el.scrollTop > 0 : el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+          if (canScroll) return; // let this part of the sidebar scroll
+        }
+      }
+      e.preventDefault();
+    };
+    aside.addEventListener("wheel", onWheel, { passive: false }); // passive: false so preventDefault works
+    return () => aside.removeEventListener("wheel", onWheel);
+  }, []);
+
   return (
     <>
       <div
@@ -164,10 +184,11 @@ export default function Sidebar({ pinnedOpen, onTogglePinned, mobileOpen, onClos
         )}
       />
       <aside
+        ref={asideRef}
         onMouseEnter={() => setHover(true, 60)}
         onMouseLeave={() => setHover(false, 160)}
         className={cx(
-          "palette-fixed fixed inset-y-3 left-3 z-50 flex w-72 flex-col overflow-hidden rounded-[28px] bg-stone-950 p-3 text-stone-300 shadow-float",
+          "palette-fixed fixed inset-y-3 left-3 z-50 flex w-72 flex-col overflow-hidden overscroll-contain rounded-[28px] bg-stone-950 p-3 text-stone-300 shadow-float",
           "bg-[radial-gradient(120%_60%_at_0%_0%,rgb(255_107_26/0.18),transparent_60%)]",
           "transition-[width,transform] duration-[450ms] ease-smooth [contain:layout_paint]",
           expanded ? "lg:w-64" : "lg:w-[84px]",
@@ -196,7 +217,8 @@ export default function Sidebar({ pinnedOpen, onTogglePinned, mobileOpen, onClos
           )}
         </nav>
 
-        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto scrollbar-thin">
+        {/* overscroll-contain: touch scrolling past the end doesn't carry on into the page */}
+        <div className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain scrollbar-thin">
           <OnTheClock expanded={showLabels} />
         </div>
 

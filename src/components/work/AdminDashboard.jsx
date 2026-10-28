@@ -49,9 +49,12 @@ function SectionTitle({ icon, title, children }) {
 }
 
 /** Who is clocked in right now, ticking every second. */
-function LiveNow({ team, entries, now }) {
+function LiveNow({ team, entries, now: pageNow }) {
   const { allIndex: index } = useStore();
   const running = new Map(entries.filter((e) => e.end == null).map((e) => [e.memberId, e]));
+  // Only this card ticks every second (for the running clocks).
+  const tick = useNow(running.size > 0, 1000);
+  const now = running.size ? tick : pageNow;
   const lastEnd = (id) => Math.max(0, ...entries.filter((e) => e.memberId === id && e.end).map((e) => e.end));
   // Clocked-in people first, longest session on top.
   const rows = [...team].sort((a, b) => (running.get(a.id)?.start ?? Infinity) - (running.get(b.id)?.start ?? Infinity));
@@ -328,7 +331,9 @@ export default function AdminDashboard() {
   const { openEntryForm } = useDialogs();
   const team = workingMembers(state.members, state.items, teamEntries);
   const anyRunning = teamEntries.some((e) => e.end == null);
-  const now = useNow(anyRunning, 1000); // live timers tick every second
+  // The page refreshes its numbers every 30 s; only the "On the clock" card ticks every second (its own timer),
+  // so the whole dashboard isn't recalculated every second while someone is clocked in.
+  const now = useNow(anyRunning, 30_000);
 
   const weekStart = startOfWeek(now);
   const week = teamEntries.filter((e) => (e.end ?? now) > weekStart);
