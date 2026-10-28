@@ -3,7 +3,7 @@ import { BadgeDollarSign, ChevronDown, CircleSlash, Clock, Download, FileBarChar
 import { useNow } from "../../hooks/useNow";
 import { openItem } from "../../lib/router";
 import { addDays, decimalHours, formatHours, formatTime, fromDateKey, startOfWeek, toDateKey } from "../../lib/time";
-import { BILLING_LABEL, ancestry, entryBilling, entrySeconds } from "../../store/model";
+import { BILLING_LABEL, ancestry, entryBilling, entrySeconds, workingMembers } from "../../store/model";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import { Avatar, AvatarStack, Button, Card, EmptyState, Field, IconChip, Modal, Select, cx, inputClass } from "../ui";
@@ -152,11 +152,11 @@ function ExportPicker({ count, onClose, onExport }) {
 /* ---------- Report ---------- */
 
 function Report() {
-  const { state } = useStore();
+  const { state, teamEntries } = useStore();
   const { toast } = useDialogs();
   const now = useNow(true, 60_000); // running timers count up to now
   const clients = state.items.filter((i) => i.type === "client").sort((a, b) => a.name.localeCompare(b.name));
-  const team = state.members.filter((m) => !m.isAdmin);
+  const team = workingMembers(state.members, state.items, teamEntries);
 
   const [clientId, setClientId] = useState("");
   const [billing, setBilling] = useState("all");

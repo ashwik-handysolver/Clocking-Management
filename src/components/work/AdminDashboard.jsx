@@ -6,7 +6,7 @@ import { Legend, StackedBars } from "../charts";
 import { useNow } from "../../hooks/useNow";
 import { navigate, openItem } from "../../lib/router";
 import { addDays, formatClock, formatDate, formatHours, formatTime, startOfWeek, timeAgo } from "../../lib/time";
-import { BILLING_LABEL, assigneesOf, billingOf, entryBilling, entrySeconds, isDone, isOverdue, pathLabel } from "../../store/model";
+import { BILLING_LABEL, assigneesOf, billingOf, entryBilling, entrySeconds, isDone, isOverdue, pathLabel, workingMembers } from "../../store/model";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import ClientHoursCard from "./ClientHoursCard";
@@ -335,8 +335,9 @@ function NeedsAttention({ entries, now }) {
 
 export default function AdminDashboard() {
   const { state, teamEntries, allIndex: index, me } = useStore();
+  // Team members, plus the admin once they take on work themself.
   const { openEntryForm } = useDialogs();
-  const team = state.members.filter((m) => !m.isAdmin);
+  const team = workingMembers(state.members, state.items, teamEntries);
   const anyRunning = teamEntries.some((e) => e.end == null);
   const now = useNow(anyRunning, 1000); // live timers tick every second
 

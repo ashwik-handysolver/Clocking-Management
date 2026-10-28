@@ -150,11 +150,6 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
             <span className="flex items-center gap-1 text-stone-500">
               <CalendarClock className="size-3.5" />
               {shortDate(cycle.start)} – {shortDate(cycle.end)}
-              {s.endingSoon && (
-                <span className="ml-1 rounded-full bg-amber-100 px-1.5 text-[10px] font-bold text-amber-800">
-                  Ends in {s.daysLeft} working {s.daysLeft === 1 ? "day" : "days"}
-                </span>
-              )}
             </span>
             <span className={cx("font-bold", over ? "text-red-600" : s.status === "behind" ? "text-amber-700" : "text-stone-600")}>{paceText}</span>
           </div>

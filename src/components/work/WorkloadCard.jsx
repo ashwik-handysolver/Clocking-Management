@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Briefcase } from "lucide-react";
+import { workingMembers } from "../../store/model";
 import { useStore } from "../../store/store";
 import { Avatar, Card, IconChip, cx } from "../ui";
 
@@ -20,9 +21,9 @@ const OPEN = new Set(SERIES.map((s) => s.status));
 const hrs = (h) => (h >= 10 || Number.isInteger(h) ? Math.round(h) : Math.round(h * 10) / 10) + "h";
 
 export default function WorkloadCard() {
-  const { items, state } = useStore();
+  const { items, state, teamEntries } = useStore();
   const [hover, setHover] = useState(null);
-  const team = state.members.filter((m) => !m.isAdmin);
+  const team = workingMembers(state.members, items, teamEntries);
 
   const rows = team
     .map((m) => {
@@ -89,15 +90,17 @@ export default function WorkloadCard() {
                   className="relative flex h-2.5 gap-[2px] rounded-full bg-stone-100"
                   aria-label={`${r.m.name}: ${SERIES.map(({ status }) => `${hrs(r.by[status])} ${status.toLowerCase()}`).join(", ")}`}
                 >
-                  {SERIES.map(({ status, swatch }, i) =>
-                    r.by[status] > 0 ? (
+                  {(() => {
+                    // Round only the outer ends of whichever segments are present.
+                    const present = SERIES.filter(({ status }) => r.by[status] > 0);
+                    return present.map(({ status, swatch }, i) => (
                       <div
                         key={status}
-                        className={cx("h-full first:rounded-l-full last:rounded-r-full", swatch, i === 0 && "rounded-l-full")}
+                        className={cx("h-full", swatch, i === 0 && "rounded-l-full", i === present.length - 1 && "rounded-r-full")}
                         style={{ width: `${(r.by[status] / max) * 100}%` }}
                       />
-                    ) : null,
-                  )}
+                    ));
+                  })()}
                   {/* team average */}
                   {avg > 0 && <span aria-hidden="true" className="absolute -top-1 -bottom-1 w-0 border-l-2 border-dotted border-stone-400" style={{ left: `${(avg / max) * 100}%` }} />}
                 </div>

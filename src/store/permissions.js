@@ -60,5 +60,5 @@ export const canMoveEntryBilling = (user) => isAdmin(user);
 /** Only whoever can edit a subtask's details can change who it's assigned to. */
 export const canEditAssignees = (user, item) => canEditDetails(user, item);
 
-/** Subtasks go to any team member, yourself included, but never the admin. */
-export const assignableMembers = (members) => members.filter((m) => !m.isAdmin);
+/** Subtasks go to any team member, yourself included. Nobody assigns work to the admin, except the admin to themself. */
+export const assignableMembers = (members, user) => members.filter((m) => !m.isAdmin || (isAdmin(user) && m.id === user?.id));

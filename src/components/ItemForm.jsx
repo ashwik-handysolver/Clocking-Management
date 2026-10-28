@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Building, Folder, ListChecks, CircleDot } from "lucide-react";
 import { openItem } from "../lib/router";
-import { BILLING, BILLING_LABEL, PARENT_TYPE, PRIORITIES, billingOf, PROJECT_STATUSES, STATUSES, TYPES, TYPE_LABEL, ancestry, clientCycle, dueLimits, dueProblem, pathLabel } from "../store/model";
+import { BILLING, BILLING_LABEL, PARENT_TYPE, PRIORITIES, billingOf, PROJECT_STATUSES, statusChoices, TYPES, TYPE_LABEL, ancestry, clientCycle, dueLimits, dueProblem, pathLabel } from "../store/model";
 import { shortDate, todayKey } from "../lib/time";
 import { DEFAULT_SNAPSHOT_MINUTES, MAX_SNAPSHOT_MINUTES, MIN_SNAPSHOT_MINUTES, snapshotMinutesFor } from "../config";
 import MemberPicker from "./MemberPicker";
@@ -336,7 +336,7 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
               </Field>
             )}
             <Field label="Status">
-              <Select value={values.status} onChange={set("status")} options={STATUSES} />
+              <Select value={values.status} onChange={set("status")} options={statusChoices(editing?.status)} />
             </Field>
             <Field label="Priority">
               <Select value={values.priority} onChange={set("priority")} options={PRIORITIES} />

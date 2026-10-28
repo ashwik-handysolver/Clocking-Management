@@ -5,7 +5,7 @@ import {
 import { useNow } from "../../hooks/useNow";
 import { openItem } from "../../lib/router";
 import { addDays, formatDate, formatHours, formatTime, startOfWeek, timeAgo } from "../../lib/time";
-import { BILLING_LABEL, billingOf, entryBilling, entrySeconds, pathLabel } from "../../store/model";
+import { BILLING_LABEL, billingOf, entryBilling, entrySeconds, pathLabel, workingMembers } from "../../store/model";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import { Avatar, Button, Card, EmptyState, Select, cx } from "../ui";
@@ -48,7 +48,7 @@ export default function Timesheets() {
 function Entries() {
   const { state, teamEntries, allIndex: index, memberById, actions, audit } = useStore();
   const { openEntryForm, confirm, toast } = useDialogs();
-  const team = state.members.filter((m) => !m.isAdmin);
+  const team = workingMembers(state.members, state.items, teamEntries);
   const [week, setWeek] = useState(0); // 0 = this week, -1 = last week…
   const [who, setWho] = useState("");
   const [billing, setBilling] = useState("all");
@@ -261,8 +261,8 @@ const KIND_TONE = {
 
 /** Who changed whose time, newest first, 15 at a time. */
 function ChangeHistory() {
-  const { state, audit, allIndex: index, memberById } = useStore();
-  const team = state.members.filter((m) => !m.isAdmin);
+  const { state, audit, allIndex: index, memberById, teamEntries } = useStore();
+  const team = workingMembers(state.members, state.items, teamEntries);
   const [who, setWho] = useState("");
   const [page, setPage] = useState(0);
   const rows = audit.filter((a) => !who || a.memberId === who);

@@ -6,6 +6,12 @@ export const CHILD_TYPE = { client: "project", project: "task", task: "subtask",
 export const PARENT_TYPE = { client: null, project: "client", task: "project", subtask: "task" };
 
 export const STATUSES = ["To do", "In progress", "In review", "Blocked", "Completed"];
+
+/**
+ * Statuses people can pick. "In progress" isn't one: it's set automatically when someone clocks in.
+ * (A subtask already in progress still shows it, so the dropdown can display its current value.)
+ */
+export const statusChoices = (current) => STATUSES.filter((s) => s !== "In progress" || s === current);
 export const PRIORITIES = ["Low", "Medium", "High", "Urgent"];
 export const PROJECT_STATUSES = ["Active", "On hold", "Completed"];
 
@@ -255,4 +261,13 @@ export function clientCycle(client, today = todayKey()) {
   // The cycle before this one, if there was one.
   const prev = prevStart ? { start: prevStart, end: dayBefore(start) } : null;
   return { start, end, months, hours: client.budgetHours, upcoming: today < start, prev };
+}
+/**
+ * People who do the work: every team member, plus the admin once they've taken on work themself
+ * (assigned to a subtask, or have logged time). Used for team lists, filters and charts.
+ */
+export function workingMembers(members, items = [], entries = []) {
+  return members.filter(
+    (m) => !m.isAdmin || entries.some((e) => e.memberId === m.id) || items.some((i) => i.type === "subtask" && (i.assignees ?? []).includes(m.id)),
+  );
 }

@@ -14,9 +14,9 @@ import { Avatar, Popover, cx } from "../ui";
 
 // Items without a `page` aren't built yet.
 const NAV = [
+  { icon: LayoutDashboard, label: "Dashboard", page: "dashboard" },
   { icon: ListTodo, label: "My work", page: "my" },
   { icon: FolderKanban, label: "Clients & Projects", page: "work" },
-  { icon: LayoutDashboard, label: "Dashboard", page: "dashboard" },
   { icon: Users, label: "Team" },
 ];
 

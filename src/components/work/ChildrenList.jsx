@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ExternalLink, Folder, Pencil, Plus } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { dueInfo, formatHours } from "../../lib/time";
-import { BILLING_LABEL, CHILD_TYPE, STATUSES, billingOf, TYPE_LABEL, assigneesOf, hasAssignee, isDone, isWork, progressOf } from "../../store/model";
+import { BILLING_LABEL, CHILD_TYPE, billingOf, statusChoices, TYPE_LABEL, assigneesOf, hasAssignee, isDone, isWork, progressOf } from "../../store/model";
 import { canEditDetails } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Segmented } from "../admin/AdminPage";
@@ -127,7 +127,7 @@ export default function ChildrenList({ item, billing, seconds }) {
                   <PillSelect
                     label="Status"
                     value={c.status}
-                    options={STATUSES}
+                    options={statusChoices(c.status)}
                     styleFor={(s) => STATUS_STYLE[s]?.pill}
                     onChange={(status) => actions.updateItem(c.id, { status })}
                     className="ring-1 ring-stone-900/5"

@@ -42,8 +42,8 @@ function stopRunning(state, memberId, at) {
 function reducer(state, action) {
   const memberName = (id) => state.members.find((m) => m.id === id)?.name ?? "someone";
   const user = state.members.find((m) => m.id === state.currentUserId) ?? { id: state.currentUserId };
-  // Nobody assigns work to the admin account.
-  const noAdmins = (ids) => (ids ?? []).filter((id) => !state.members.find((m) => m.id === id)?.isAdmin);
+  // Nobody assigns work to the admin account, except the admin to themself.
+  const noAdmins = (ids) => (ids ?? []).filter((id) => !state.members.find((m) => m.id === id)?.isAdmin || (isAdmin(user) && id === user.id));
 
   switch (action.type) {
     case "addItem": {

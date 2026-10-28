@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Calendar, CircleDot, Flag, Hourglass, Lock, Tag, UserRound } from "lucide-react";
 import MemberPicker from "../MemberPicker";
 import { dueInfo, shortDate } from "../../lib/time";
-import { PRIORITIES, STATUSES, assigneesOf, hasAssignee, dueLimits, dueProblem, isDone } from "../../store/model";
+import { PRIORITIES, statusChoices, assigneesOf, hasAssignee, dueLimits, dueProblem, isDone } from "../../store/model";
 import { canEditAssignees, canEditDetails } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Avatar, PRIORITY_STYLE, PillSelect, STATUS_STYLE, cx } from "../ui";
@@ -53,7 +53,7 @@ export default function WorkProperties({ item }) {
   return (
     <dl className="grid grid-cols-2 gap-2 rounded-3xl bg-stone-50 p-2 @2xl:grid-cols-4">
       <Prop icon={CircleDot} label="Status">
-        <PillSelect label="Status" value={item.status} options={STATUSES} styleFor={(s) => STATUS_STYLE[s]?.pill} onChange={(status) => update({ status })} />
+        <PillSelect label="Status" value={item.status} options={statusChoices(item.status)} styleFor={(s) => STATUS_STYLE[s]?.pill} onChange={(status) => update({ status })} />
       </Prop>
       <Prop icon={Flag} label="Priority">
         {locked ? (

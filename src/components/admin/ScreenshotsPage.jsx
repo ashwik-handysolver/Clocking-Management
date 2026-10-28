@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Camera, ChevronLeft, ChevronRight, ImageOff, X } from "lucide-react";
 import { addDays, formatDate, formatTime, fromDateKey, startOfWeek, toDateKey } from "../../lib/time";
 import { navigate, openItem, useRoute } from "../../lib/router";
-import { ancestry, pathLabel } from "../../store/model";
+import { ancestry, pathLabel, workingMembers } from "../../store/model";
 import { listSnapshots, snapshotUrls } from "../../store/db";
 import { useStore } from "../../store/store";
 import { Avatar, Card, EmptyState, Field, Select, cx, inputClass } from "../ui";
@@ -20,7 +20,7 @@ const PER_PAGE = 24;
 export default function ScreenshotsPage() {
   const { state, teamEntries, allIndex: index, memberById } = useStore();
   const clients = state.items.filter((i) => i.type === "client").sort((a, b) => a.name.localeCompare(b.name));
-  const team = state.members.filter((m) => !m.isAdmin);
+  const team = workingMembers(state.members, state.items, teamEntries);
 
   // Opened from a task or subtask page ("View screenshots"): only that work, from when it was created.
   const { params } = useRoute();

@@ -3,7 +3,7 @@ import { CircleCheck, ListTodo, Search, Timer, TriangleAlert, UserRoundCheck } f
 import { useNow } from "../../hooks/useNow";
 import { openItem } from "../../lib/router";
 import { dueInfo, formatHours, startOfDay } from "../../lib/time";
-import { STATUSES, assigneesOf, entrySeconds, isDone, pathLabel, rollupSeconds, runningEntryOf } from "../../store/model";
+import { assigneesOf, statusChoices, entrySeconds, isDone, pathLabel, rollupSeconds, runningEntryOf } from "../../store/model";
 import { useStore } from "../../store/store";
 import { AvatarStack, Card, EmptyState, IconChip, PillSelect, PriorityLabel, STATUS_STYLE, cx } from "../ui";
 import { ClockButton } from "./ClockCard";
@@ -60,7 +60,7 @@ export default function MyWork() {
   const groups = new Map(GROUPS.map((g) => [g.key, []]));
   for (const s of matches) groups.get(groupOf(s, byMe ? null : running?.subtaskId)).push(s);
   for (const list of groups.values())
-    list.sort((a, b) => (a.due ?? "9999").localeCompare(b.due ?? "9999") || PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]);
+    list.sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)); // no due date → last
 
   const open = mine.filter((s) => !isDone(s)).length;
   const overdue = mine.filter((s) => !isDone(s) && (dueInfo(s.due).days ?? 0) < 0).length;
@@ -175,7 +175,7 @@ function Row({ sub, byMe, secs, onStatus }) {
         <span className={cx("font-semibold whitespace-nowrap", DUE_TONE[due.tone])}>{due.label}</span>
         {secs > 0 && <span className="whitespace-nowrap text-stone-400">{formatHours(secs)}</span>}
         <PriorityLabel priority={sub.priority} compact />
-        <PillSelect label="Status" value={sub.status} options={STATUSES} styleFor={(s) => STATUS_STYLE[s]?.pill} onChange={onStatus} className="ring-1 ring-stone-900/5" />
+        <PillSelect label="Status" value={sub.status} options={statusChoices(sub.status)} styleFor={(s) => STATUS_STYLE[s]?.pill} onChange={onStatus} className="ring-1 ring-stone-900/5" />
       </div>
     </li>
   );

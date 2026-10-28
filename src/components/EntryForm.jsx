@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { combineDateTime, formatHours, formatTime, toDateKey, toTimeInput, todayKey } from "../lib/time";
-import { descendants, pathLabel } from "../store/model";
+import { descendants, pathLabel, workingMembers } from "../store/model";
 import { canClockOn, canLogManualTime } from "../store/permissions";
 import { useStore } from "../store/store";
 import MicButton from "./MicButton";
@@ -19,7 +19,7 @@ export default function EntryForm({ entryId, subtaskId, scopeId, memberId: membe
   const owner = entry ? memberById.get(entry.memberId) : me;
   // New manual entries are logged by the admin for a team member.
   const forMember = !entry && canLogManualTime(me);
-  const memberOptions = state.members.filter((m) => !m.isAdmin).map((m) => ({ value: m.id, label: m.name }));
+  const memberOptions = workingMembers(state.members, state.items, teamEntries).map((m) => ({ value: m.id, label: m.id === me.id ? `${m.name} (you)` : m.name }));
   const running = entry && entry.end == null;
 
   const [values, setValues] = useState(() => {
