@@ -30,19 +30,23 @@ export function ClockProvider({ children }) {
   const [busyElsewhere, setBusyElsewhere] = useState(lockHeldElsewhere);
   const session = useRef(null);
   const shotFor = useRef(null); // entry id that already got its first screenshot
+  // The clocking THIS tab started. Screenshots and check-ins are only ever for it: if the same
+  // account clocks in somewhere else, that new clocking is not this screen's to capture.
+  const ownEntry = useRef(null); // entry id, "pending" while clocking in, or null
   const latest = useRef();
   latest.current = { running, index, name: me.name };
 
   const endCapture = useCallback(() => {
     session.current?.stop();
     session.current = null;
+    ownEntry.current = null;
     setCapturing(false);
     releaseLock();
   }, []);
 
   const shoot = useCallback(async () => {
     const { running: entry } = latest.current;
-    if (!session.current || !entry) return;
+    if (!session.current || !entry || entry.id !== ownEntry.current) return; // not this tab's clocking
     try {
       const { blob } = await session.current.grab();
       await saveSnapshot({ id: uid("snap"), entryId: entry.id, memberId: entry.memberId, memberName: latest.current.name, takenAt: Date.now(), blob });
@@ -55,7 +59,7 @@ export function ClockProvider({ children }) {
   const project = running ? ancestry(index, running.subtaskId).find((x) => x.type === "project") : null;
   const everyMs = snapshotMinutesFor(project) * 60_000;
   useEffect(() => {
-    if (!capturing || !running) return;
+    if (!capturing || !running || running.id !== ownEntry.current) return;
     if (shotFor.current !== running.id) {
       shotFor.current = running.id;
       shoot();
@@ -66,15 +70,24 @@ export function ClockProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capturing, running?.id, everyMs, shoot]);
 
-  // Timer stopped some other way (e.g. switched user): stop sharing too.
+  // Timer stopped some other way (e.g. by the admin): stop sharing too.
   useEffect(() => {
     if (capturing && !running) endCapture();
   }, [capturing, running, endCapture]);
 
+  // The account clocked in on another device (or tab), replacing this tab's clocking: stop sharing here.
+  useEffect(() => {
+    const own = ownEntry.current;
+    if (capturing && running && own && own !== "pending" && running.id !== own) {
+      endCapture();
+      toast("Your timer was started on another device, so screen sharing here stopped");
+    }
+  }, [capturing, running, endCapture, toast]);
+
   // While this tab is clocked in, check in with Supabase every 30 s. Other devices (and the
   // server's cleanup job) treat a timer without recent check-ins as abandoned.
   useEffect(() => {
-    if (!capturing || !running) return;
+    if (!capturing || !running || running.id !== ownEntry.current) return;
     const beat = () => sendBeat(me.id, running.id, DEVICE_ID).catch(() => {}); // a missed one is retried next time
     beat();
     const timer = setInterval(beat, BEAT_MS);
@@ -92,7 +105,7 @@ export function ClockProvider({ children }) {
   useEffect(() => {
     const check = async () => {
       const entry = latest.current.running;
-      if (!entry?.screenCapture || session.current) return setBusyElsewhere(lockHeldElsewhere());
+      if (!entry?.screenCapture || (session.current && entry.id === ownEntry.current)) return setBusyElsewhere(lockHeldElsewhere());
       if (lockIsLive()) return setBusyElsewhere(true);
       if (asking.current || Date.now() - lastAsked.current < ASK_EVERY_MS) return;
       asking.current = true;
@@ -143,9 +156,11 @@ export function ClockProvider({ children }) {
         try {
           session.current = await startScreenCapture({
             onEnded: () => {
-              actions.stopTimer();
+              // Only stop the timer if it's still this tab's clocking (not one started on another device).
+              const mine = latest.current.running && latest.current.running.id === ownEntry.current;
+              if (mine) actions.stopTimer();
               endCapture();
-              toast("Screen sharing stopped, so your timer was stopped and time logged");
+              if (mine) toast("Screen sharing stopped, so your timer was stopped and time logged");
             },
           });
         } catch {
@@ -160,9 +175,10 @@ export function ClockProvider({ children }) {
           return false;
         }
         acquireLock();
+        ownEntry.current = "pending";
         setCapturing(true);
       }
-      actions.startTimer(subtaskId, { screenCapture: true });
+      ownEntry.current = actions.startTimer(subtaskId, { screenCapture: true }) ?? null;
       return true;
     },
     [actions, endCapture, toast],

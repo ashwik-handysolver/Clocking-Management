@@ -245,6 +245,13 @@ export function StoreProvider({ children }) {
   const pending = useRef(0);
   const reloadWanted = useRef(false);
   const ready = useRef(false);
+  // One device per account (first sign-in wins). `claim` = this load follows a fresh sign-in.
+  const claim = useRef(false);
+  const [signedOutReason, setSignedOutReason] = useState("");
+  const kickOut = useCallback(async (reason) => {
+    setSignedOutReason(reason);
+    await supabase.auth.signOut({ scope: "local" }); // this device only
+  }, []);
 
   const reload = useCallback(async () => {
     if (pending.current > 0) {
@@ -258,6 +265,13 @@ export function StoreProvider({ children }) {
         return;
       }
       const member = data.members.find((m) => m.authUserId === authId.current);
+      // First load after signing in: make sure no other device is using this account.
+      if (member && !ready.current) {
+        const verdict = await checkDevice(claim.current);
+        claim.current = false;
+        if (verdict === "busy") return kickOut("This account is already signed in on another device. Sign out there first, then sign in here.");
+        if (verdict === "replaced") return kickOut("You were signed out because this account is now in use on another device.");
+      }
       dispatch({ type: "hydrate", state: data });
       if (!member) return setStatus("noMember");
       dispatch({ type: "signedIn", memberId: member.id });
@@ -272,7 +286,7 @@ export function StoreProvider({ children }) {
       setProblem(err.message ?? String(err));
       setStatus("error");
     }
-  }, []);
+  }, [kickOut]);
 
   // Follow the Supabase session: load data when someone is signed in.
   useEffect(() => {
@@ -290,11 +304,32 @@ export function StoreProvider({ children }) {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") setRecovering(true); // opened a reset-password link: choose a new password first
       // A fresh sign-in (not a page refresh): start on the dashboard.
-      if (event === "SIGNED_IN" && !authId.current && session) navigate("dashboard");
+      if (event === "SIGNED_IN" && !authId.current && session) {
+        navigate("dashboard");
+        newLoginId(); // this sign-in claims the account for this device
+        claim.current = true;
+        setSignedOutReason("");
+      }
       if (event !== "INITIAL_SESSION") onSession(session);
     });
     return () => data.subscription.unsubscribe();
   }, [reload]);
+
+  // While signed in, keep this device's hold on the account fresh (and notice if it was lost).
+  useEffect(() => {
+    if (status !== "ready") return;
+    const ping = async () => {
+      if (document.visibilityState !== "visible") return;
+      const verdict = await checkDevice(false).catch(() => "ok");
+      if (verdict === "replaced") kickOut("You were signed out because this account is now in use on another device.");
+    };
+    const timer = setInterval(ping, 60_000);
+    document.addEventListener("visibilitychange", ping);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", ping);
+    };
+  }, [status, kickOut]);
 
   // Live updates: reload (debounced) whenever any table changes.
   useEffect(() => {
@@ -352,7 +387,12 @@ export function StoreProvider({ children }) {
       updateItem: (id, changes) => send({ type: "updateItem", id, changes }),
       deleteItem: (id) => send({ type: "deleteItem", id }),
       // UI should clock in/out through useClock() (components/clock.jsx), which handles screenshots.
-      startTimer: (subtaskId, { screenCapture = false } = {}) => send({ type: "startTimer", subtaskId, screenCapture, entryId: uid("e") }),
+      // Returns the new clocking's id (the tab that clocks in captures screenshots for that clocking only).
+      startTimer(subtaskId, { screenCapture = false } = {}) {
+        const entryId = uid("e");
+        send({ type: "startTimer", subtaskId, screenCapture, entryId });
+        return entryId;
+      },
       stopTimer: (at) => send({ type: "stopTimer", ...(at && { at }) }),
       addEntry: (entry) => send({ type: "addEntry", entry: { source: "manual", note: "", ...entry, id: uid("e") } }),
       setEntryBilling: (id, billing) => send({ type: "setEntryBilling", id, billing }),
@@ -371,7 +411,8 @@ export function StoreProvider({ children }) {
       async signOut() {
         send({ type: "stopTimer" });
         await queue.catch(() => {});
-        await supabase.auth.signOut();
+        await releaseDevice(); // free the account for another device
+        await supabase.auth.signOut({ scope: "local" }); // this device only
       },
     };
   }, [reload]);
@@ -400,7 +441,7 @@ export function StoreProvider({ children }) {
   );
 
   if (recovering && status !== "signedOut" && status !== "unconfigured") return <AuthPage mode="recovery" onRecovered={() => setRecovering(false)} />;
-  if (status === "signedOut") return <AuthPage />;
+  if (status === "signedOut") return <AuthPage notice={signedOutReason} />;
   if (status !== "ready" || !me) return <StoreStatus status={status} problem={problem} onRetry={reload} />;
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
@@ -433,7 +474,7 @@ function StoreStatus({ status, problem, onRetry }) {
           <button type="button" onClick={onRetry} className="rounded-xl bg-brand-600 px-4 py-2 text-sm font-bold text-white hover:bg-brand-700">
             Try again
           </button>
-          <button type="button" onClick={() => supabase.auth.signOut()} className="rounded-xl px-4 py-2 text-sm font-bold text-stone-600 hover:bg-stone-100">
+          <button type="button" onClick={async () => { await releaseDevice(); await supabase.auth.signOut({ scope: "local" }); }} className="rounded-xl px-4 py-2 text-sm font-bold text-stone-600 hover:bg-stone-100">
             Sign out
           </button>
           </div>
@@ -441,4 +482,40 @@ function StoreStatus({ status, problem, onRetry }) {
       </div>
     </div>
   );
+}
+/* ---------- One device per account ---------- */
+
+const LOGIN_KEY = "handysolver-login-id";
+
+/** A new id for this device's sign-in (kept in this browser, shared by its tabs). */
+function newLoginId() {
+  const id = (crypto.randomUUID?.() ?? Math.random().toString(36).slice(2) + Date.now().toString(36));
+  try {
+    localStorage.setItem(LOGIN_KEY, id);
+  } catch {
+    /* private mode: works for this visit */
+  }
+  return id;
+}
+function loginId() {
+  try {
+    return localStorage.getItem(LOGIN_KEY) || newLoginId();
+  } catch {
+    return newLoginId();
+  }
+}
+
+/** "ok" | "busy" (another device holds the account) | "replaced" (another device took over). */
+async function checkDevice(claim) {
+  const device = `${navigator.platform || "device"} · ${navigator.userAgent.match(/(Edg|Chrome|Firefox|Safari)\/[\d.]+/)?.[0] ?? "browser"}`;
+  const { data, error } = await supabase.rpc("session_check", { p_session: loginId(), p_device: device, p_claim: claim });
+  if (error) {
+    console.warn("Device check failed", error);
+    return "ok"; // don't lock people out over a network hiccup
+  }
+  return data;
+}
+
+async function releaseDevice() {
+  await supabase.rpc("session_release", { p_session: loginId() }).then(() => {}, () => {});
 }

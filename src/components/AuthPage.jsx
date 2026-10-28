@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { ArrowLeft, Clock, FileText, Gauge, KeyRound, LogIn, Mail, Timer, UserPlus } from "lucide-react";
+import { ArrowLeft, Clock, FileText, Gauge, KeyRound, LogIn, Mail, MonitorSmartphone, Timer, UserPlus } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Button, Field, cx, inputClass } from "./ui";
 
@@ -12,7 +12,7 @@ import { Button, Field, cx, inputClass } from "./ui";
  * recovery (Supabase's PASSWORD_RECOVERY event), and the store shows this page with
  * mode="recovery" to choose a new password.
  */
-export default function AuthPage({ mode: initialMode = "signin", onRecovered }) {
+export default function AuthPage({ mode: initialMode = "signin", onRecovered, notice: initialNotice = "" }) {
   // Always light, whatever the saved or system theme; the app's theme comes back after sign-in.
   useLayoutEffect(() => {
     const root = document.documentElement;
@@ -26,6 +26,9 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered }) 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // Why you were signed out (e.g. the account is in use on another device): shown as a warning.
+  const [warning, setWarning] = useState(initialNotice);
+  useEffect(() => setWarning(initialNotice), [initialNotice]);
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
   // Back from Google (or a sign-in link) with an error, e.g. sign-in cancelled: say so and tidy the address bar.
@@ -280,6 +283,12 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered }) 
               </div>
             )}
 
+            {warning && !error && (
+              <p role="alert" className="flex gap-2 rounded-xl bg-amber-50 px-3 py-2.5 text-sm font-medium text-amber-900 ring-1 ring-amber-200">
+                <MonitorSmartphone className="mt-0.5 size-4 shrink-0" />
+                {warning}
+              </p>
+            )}
             {error && <p role="alert" className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
             {notice && <p role="status" className="rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800">{notice}</p>}
 
