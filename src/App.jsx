@@ -5,6 +5,7 @@ import Reports from "./components/admin/Reports";
 import Timesheets from "./components/admin/Timesheets";
 import { ClockProvider } from "./components/clock";
 import { DialogsProvider } from "./components/dialogs";
+import Notifications from "./components/Notifications";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import { cx } from "./components/ui";
@@ -67,8 +68,8 @@ const PAGE_TITLE = {
 function Shell() {
   const route = useRoute();
   const { index } = useStore();
-  // "My work" is home; anything unknown (including the old default "dashboard") lands there.
-  const page = PAGES.includes(route.page) ? route.page : "my";
+  // Dashboard is home; anything unknown lands there.
+  const page = PAGES.includes(route.page) ? route.page : "dashboard";
   const routeItem = page === "work" && route.id ? index.get(route.id) : null;
   // Projects aren't a page of their own: they open as a tab on their client's page.
   const projectId = routeItem?.type === "project" ? routeItem.id : null;
@@ -158,6 +159,7 @@ export default function App() {
     <StoreProvider>
       <DialogsProvider>
         <ClockProvider>
+          <Notifications />
           <Shell />
         </ClockProvider>
       </DialogsProvider>

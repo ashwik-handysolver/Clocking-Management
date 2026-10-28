@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import AuthPage from "../components/AuthPage";
+import { navigate } from "../lib/router";
 import { openedFromRecoveryLink, supabase, supabaseConfigured } from "../lib/supabase";
 import { loadAll, pushChanges, subscribeAll } from "./db";
 import { formatHours, formatTime } from "../lib/time";
@@ -288,6 +289,8 @@ export function StoreProvider({ children }) {
     supabase.auth.getSession().then(({ data }) => onSession(data.session));
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") setRecovering(true); // opened a reset-password link: choose a new password first
+      // A fresh sign-in (not a page refresh): start on the dashboard.
+      if (event === "SIGNED_IN" && !authId.current && session) navigate("dashboard");
       if (event !== "INITIAL_SESSION") onSession(session);
     });
     return () => data.subscription.unsubscribe();

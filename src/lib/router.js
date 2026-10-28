@@ -4,7 +4,7 @@ function parse() {
   const raw = window.location.hash.replace(/^#\/?/, "");
   const [path, query = ""] = raw.split("?");
   const parts = path.split("/").filter(Boolean);
-  return { page: parts[0] || "my", id: parts[1] ?? null, params: Object.fromEntries(new URLSearchParams(query)) };
+  return { page: parts[0] || "dashboard", id: parts[1] ?? null, params: Object.fromEntries(new URLSearchParams(query)) };
 }
 
 /** Pages only the admin sees in the sidebar. */

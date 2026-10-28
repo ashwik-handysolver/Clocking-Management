@@ -3,6 +3,7 @@ import { combineDateTime, formatHours, formatTime, toDateKey, toTimeInput, today
 import { descendants, pathLabel } from "../store/model";
 import { canClockOn, canLogManualTime } from "../store/permissions";
 import { useStore } from "../store/store";
+import MicButton from "./MicButton";
 import { Button, Field, Modal, Select, cx, inputClass } from "./ui";
 
 /**
@@ -137,7 +138,10 @@ export default function EntryForm({ entryId, subtaskId, scopeId, memberId: membe
           )}
         </Field>
         <Field label="Note" className="col-span-2">
-          <input value={values.note} onChange={set("note")} placeholder="What did you work on? (optional)" className={inputClass} />
+          <span className="relative block">
+            <input value={values.note} onChange={set("note")} placeholder="What did you work on? (optional)" className={cx(inputClass, "pr-12")} />
+            <MicButton value={values.note} onChange={(text) => setValues((v) => ({ ...v, note: text }))} className="absolute top-1/2 right-1 -translate-y-1/2" />
+          </span>
         </Field>
       </div>
 

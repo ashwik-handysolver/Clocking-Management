@@ -5,6 +5,7 @@ import { BILLING, BILLING_LABEL, PARENT_TYPE, PRIORITIES, billingOf, PROJECT_STA
 import { shortDate, todayKey } from "../lib/time";
 import { DEFAULT_SNAPSHOT_MINUTES, MAX_SNAPSHOT_MINUTES, MIN_SNAPSHOT_MINUTES, snapshotMinutesFor } from "../config";
 import MemberPicker from "./MemberPicker";
+import MicButton from "./MicButton";
 import { canCreate, canEditAssignees, canSetSnapshotInterval, isAdmin } from "../store/permissions";
 import { useStore } from "../store/store";
 import TagInput from "./TagInput";
@@ -353,13 +354,17 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
         )}
 
         <Field label="Description" className="sm:col-span-2">
-          <textarea
-            value={values.description}
-            onChange={set("description")}
-            rows={3}
-            placeholder={work ? "Context, expected outcome, acceptance criteria…" : "Short summary"}
-            className={cx(inputClass, "h-auto resize-y py-2")}
-          />
+          <span className="relative block">
+            <textarea
+              value={values.description}
+              onChange={set("description")}
+              rows={3}
+              placeholder={work ? "Context, expected outcome, acceptance criteria… or tap the mic and speak" : "Short summary, or tap the mic and speak"}
+              className={cx(inputClass, "h-auto resize-y py-2 pr-12 pb-10")}
+            />
+            {/* voice typing */}
+            <MicButton value={values.description} onChange={set("description")} className="absolute right-2 bottom-2" />
+          </span>
         </Field>
       </div>
     </Modal>

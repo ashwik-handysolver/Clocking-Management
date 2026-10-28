@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, LogOut, Menu, Moon, Plus, Search, Square, Sun, Timer } from "lucide-react";
+import { Bell, BellRing, ChevronDown, ChevronRight, LogOut, Menu, Moon, Plus, Search, Square, Sun, Timer } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { useTheme } from "../../hooks/useTheme";
 import { navigate, openItem } from "../../lib/router";
@@ -11,6 +11,7 @@ import { useClock } from "../clock";
 import { useDialogs } from "../dialogs";
 import { Avatar, Button, Popover, cx } from "../ui";
 import CommandPalette from "./CommandPalette";
+import { desktopNotificationsOn, desktopPermission, setDesktopNotifications } from "../Notifications";
 import { Logo } from "./Sidebar";
 
 const PAGE_TITLE = { my: "My work", dashboard: "Dashboard", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive" };
@@ -243,6 +244,10 @@ function ThemeToggle() {
 function ProfileMenu() {
   const { me, actions, state } = useStore();
   const { dark, toggle: toggleTheme } = useTheme();
+  // "on" | "off" | "blocked" | "unsupported"
+  const [notify, setNotify] = useState(() =>
+    desktopPermission() === "unsupported" ? "unsupported" : desktopNotificationsOn() ? "on" : "off",
+  );
   const clocking = Boolean(runningEntryOf(state.entries, me.id));
   const role = me.isAdmin ? "Admin" : me.role || "Team member";
   return (
@@ -295,6 +300,27 @@ function ProfileMenu() {
           </div>
           {/* Actions */}
           <div className="space-y-0.5 p-2">
+            {notify !== "unsupported" && (
+              <div className="rounded-xl px-2.5 py-2 hover:bg-stone-50">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={notify === "on"}
+                  onClick={async () => setNotify(await setDesktopNotifications(notify !== "on"))}
+                  className="flex w-full items-center gap-2.5 text-left text-sm font-semibold text-stone-700"
+                >
+                  {notify === "on" ? <BellRing className="size-4 text-brand-500" /> : <Bell className="size-4 text-stone-400" />}
+                  <span className="flex-1">Push notifications</span>
+                  {/* switch */}
+                  <span className={cx("relative h-5 w-9 shrink-0 rounded-full transition-colors", notify === "on" ? "bg-brand-500" : "bg-stone-300")}>
+                    <span className={cx("absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-transform", notify === "on" && "translate-x-4")} />
+                  </span>
+                </button>
+                {notify === "blocked" && (
+                  <p className="mt-1 pl-[26px] text-[11px] leading-snug text-red-600">Blocked by your browser. Allow notifications for this site (padlock icon in the address bar), then switch on again.</p>
+                )}
+              </div>
+            )}
             <button
               type="button"
               onClick={toggleTheme}
