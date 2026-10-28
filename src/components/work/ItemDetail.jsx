@@ -16,6 +16,7 @@ import ChildrenList from "./ChildrenList";
 import ClientWork from "./ClientWork";
 import ClockCard from "./ClockCard";
 import WorkProperties, { Prop } from "./WorkProperties";
+import { useDeleteItem } from "./useDeleteItem";
 
 function Stat({ icon, color = "brand", label, value, sub, valueClass, aside }) {
   return (
@@ -128,20 +129,9 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
       },
     });
 
-  const remove = () => {
-    const below = descendants(index, item.id).length - 1;
-    confirm({
-      title: `Delete ${TYPE_LABEL[item.type].toLowerCase()}?`,
-      message: `“${item.name}”${below ? ` and ${below} item${below > 1 ? "s" : ""} inside it` : ""} will be permanently deleted, along with all time logged on ${below ? "them" : "it"}.`,
-      confirmLabel: "Delete",
-      danger: true,
-      onConfirm: () => {
-        actions.deleteItem(item.id);
-        item.parentId ? openItem(item.parentId) : navigate("work");
-        toast(`${TYPE_LABEL[item.type]} deleted`);
-      },
-    });
-  };
+  // Warns with the clockings and screenshots that go too.
+  const askDelete = useDeleteItem();
+  const remove = () => askDelete(item, { after: () => (item.parentId ? openItem(item.parentId) : navigate("work")) });
 
   return (
     // @container: everything inside lays out by this view's width, not the screen's.

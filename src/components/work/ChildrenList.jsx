@@ -24,10 +24,16 @@ export default function ChildrenList({ item, billing, seconds }) {
   const subtasks = childType === "subtask";
   // A project's tasks are shown one billing category at a time (when `billing` is given).
   const byBilling = billing && childType === "task";
-  const children = index
-    .childrenOf(item.id)
-    .filter((c) => !byBilling || billingOf(index, c.id) === billing)
-    .filter((c) => !subtasks || who === "all" || (who === "by" ? c.assignedBy === me.id : (c.assignees ?? []).includes(me.id)));
+  const all = index.childrenOf(item.id).filter((c) => !byBilling || billingOf(index, c.id) === billing);
+  // Completed subtasks live in their own tab; the other tabs show open work only.
+  const doneCount = subtasks ? all.filter(isDone).length : 0;
+  const children = all.filter(
+    (c) =>
+      !subtasks ||
+      (who === "done"
+        ? isDone(c)
+        : !isDone(c) && (who === "all" || (who === "by" ? c.assignedBy === me.id : (c.assignees ?? []).includes(me.id)))),
+  );
   const tabs = subtasks && (
     <Segmented
       label="Subtasks"
@@ -37,6 +43,7 @@ export default function ChildrenList({ item, billing, seconds }) {
         ["to", "Assigned to me"],
         ["by", "Assigned by me"],
         ["all", "All"],
+        ["done", doneCount ? `Completed (${doneCount})` : "Completed"],
       ]}
     />
   );
@@ -49,11 +56,23 @@ export default function ChildrenList({ item, billing, seconds }) {
       {tabs}
       <EmptyState
         icon={TYPE_ICON[childType]}
-        title={subtasks ? (who === "all" ? "No subtasks yet" : who === "by" ? "No subtasks assigned by you" : "No subtasks assigned to you") : `No ${label}s yet`}
+        title={
+          subtasks
+            ? who === "done"
+              ? "No completed subtasks yet"
+              : who === "all"
+                ? "No open subtasks"
+                : who === "by"
+                  ? "No open subtasks assigned by you"
+                  : "No open subtasks assigned to you"
+            : `No ${label}s yet`
+        }
         action={
-          <Button variant="primary" size="sm" icon={Plus} onClick={add}>
-            Add {label}
-          </Button>
+          who === "done" && subtasks ? undefined : (
+            <Button variant="primary" size="sm" icon={Plus} onClick={add}>
+              Add {label}
+            </Button>
+          )
         }
       />
       </div>
@@ -147,6 +166,7 @@ export default function ChildrenList({ item, billing, seconds }) {
           </div>
         );
       })}
+      {!(subtasks && who === "done") && (
       <button
         type="button"
         onClick={add}
@@ -154,6 +174,7 @@ export default function ChildrenList({ item, billing, seconds }) {
       >
         <Plus className="size-4" /> Add {label}
       </button>
+      )}
     </div>
   );
 }

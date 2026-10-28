@@ -15,7 +15,7 @@ import { Button, Card, EmptyState, IconChip, StatusIcon, cx } from "../ui";
  * Every chart is a single series in the brand hue, so no categorical palette is needed.
  */
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri"]; // working days only
 const RECENT = 5; // sessions shown at first, and added per "Load more"
 
 /** Seconds of `entries` that fall inside [from, to), clipping entries that cross the edges. */
@@ -78,7 +78,7 @@ function WeekChart({ entries, now }) {
         <Segmented label="Week" value={which} onChange={setWhich} options={[["this", "This week"], ["last", "Last week"]]} />
       </SectionTitle>
       <p className="mb-4 text-sm text-stone-500">
-        <span className="text-2xl font-extrabold text-stone-900">{formatHours(total)}</span> from {formatDate(weekStart)} to {formatDate(addDays(weekStart, 6))}
+        <span className="text-2xl font-extrabold text-stone-900">{formatHours(total)}</span> from {formatDate(weekStart)} to {formatDate(addDays(weekStart, 4))}
       </p>
       <div className="relative">
         {/* Recessive grid: a line at the max and at half */}
@@ -373,8 +373,10 @@ function PersonalDashboard() {
         <RecentSubtasks />
       </div>
 
-      <RecentSessions entries={entries} now={now} />
-      <TimeByClient entries={entries} now={now} />
+      <div className="grid items-start gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <RecentSessions entries={entries} now={now} />
+        <TimeByClient entries={entries} now={now} />
+      </div>
     </div>
   );
 }

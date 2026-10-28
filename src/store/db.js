@@ -210,6 +210,33 @@ export async function deleteSnapshot({ id, path }) {
   if (!gone.length) throw new Error("you don't have permission to delete screenshots");
 }
 
+const chunks = (list, size = 100) => Array.from({ length: Math.ceil(list.length / size) }, (_, i) => list.slice(i * size, (i + 1) * size));
+
+/** How many screenshots were taken during these clockings. */
+export async function countSnapshotsForEntries(entryIds) {
+  let total = 0;
+  for (const ids of chunks(entryIds)) {
+    const { count, error } = await supabase.from("snapshots").select("id", { count: "exact", head: true }).in("entry_id", ids);
+    if (error) throw error;
+    total += count ?? 0;
+  }
+  return total;
+}
+
+/**
+ * Admin: deletes the screenshots (images and records) taken during these clockings.
+ * Needed before deleting work: the database would otherwise only unlink them, leaving the images behind.
+ */
+export async function deleteSnapshotsForEntries(entryIds) {
+  for (const ids of chunks(entryIds)) {
+    const shots = check(await supabase.from("snapshots").select("id, storage_path").in("entry_id", ids));
+    if (!shots.length) continue;
+    const removed = await supabase.storage.from("snapshots").remove(shots.map((s) => s.storage_path));
+    if (removed.error) throw removed.error;
+    check(await supabase.from("snapshots").delete().in("id", shots.map((s) => s.id)));
+  }
+}
+
 /* ---------- Team (admin) ---------- */
 
 /** Admin: remove someone — deletes their sign-in, keeps their past time (profile marked removed). */

@@ -6,11 +6,12 @@ import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import { Button, Card, EmptyState } from "../ui";
 import { AdminPage } from "./AdminPage";
+import { useDeleteItem } from "../work/useDeleteItem";
 
 /** Archived clients and projects (admin): restore them, or delete them for good. */
 export default function ArchivePage() {
   const { allIndex: index, teamEntries, actions } = useStore();
-  const { confirm, toast } = useDialogs();
+  const { toast } = useDialogs();
   const seconds = useMemo(() => rollupSeconds(index, teamEntries), [index, teamEntries]);
   // Only the top archived item: a project inside an archived client goes with its client.
   const archived = [...index.byId.values()]
@@ -21,19 +22,9 @@ export default function ArchivePage() {
     actions.archiveItem(item.id, false);
     toast(`${item.name} restored`);
   };
-  const destroy = (item) => {
-    const inside = descendants(index, item.id).length - 1;
-    confirm({
-      title: `Delete ${item.type} permanently?`,
-      message: `“${item.name}”${inside ? ` and ${inside} item${inside > 1 ? "s" : ""} inside it` : ""} will be deleted for good, along with ${formatHours(seconds.get(item.id) ?? 0)} of logged time. This can't be undone.`,
-      confirmLabel: "Delete permanently",
-      danger: true,
-      onConfirm: () => {
-        actions.deleteItem(item.id);
-        toast(`${item.name} deleted`);
-      },
-    });
-  };
+  // Warns with the clockings and screenshots that go too.
+  const askDelete = useDeleteItem();
+  const destroy = (item) => askDelete(item, { confirmLabel: "Delete permanently" });
 
   return (
     <AdminPage title="Archive">

@@ -27,7 +27,7 @@ function ConfirmDialog({ title, message, confirmLabel = "Confirm", danger, onCon
         </>
       }
     >
-      <p className="text-sm leading-relaxed text-stone-600">{message}</p>
+      <div className="text-sm leading-relaxed text-stone-600">{message}</div>
     </Modal>
   );
 }
