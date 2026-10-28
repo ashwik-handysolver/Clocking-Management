@@ -67,7 +67,8 @@ export default function ChildrenList({ item, billing, seconds }) {
         const work = isWork(c);
         const prog = progressOf(index, c.id);
         const due = work ? dueInfo(c.due, isDone(c)) : null;
-        const secs = seconds.get(c.id) ?? 0;
+        // A subtask you're not on shows none of your time.
+        const secs = c.type === "subtask" && !assigneesOf(c).includes(me.id) ? 0 : seconds.get(c.id) ?? 0;
         // Subtasks open in place; projects and tasks go to their own page.
         const inline = c.type === "subtask";
         const expanded = inline && openId === c.id;
@@ -128,7 +129,7 @@ export default function ChildrenList({ item, billing, seconds }) {
                   <PillSelect
                     label="Status"
                     readOnly={!canChangeStatus(me, c)}
-                    readOnlyTitle="You can view this subtask but not change it"
+                    readOnlyTitle={`Only whoever created this ${c.type} can change it`}
                     value={c.status}
                     options={statusChoices(c.status)}
                     styleFor={(s) => STATUS_STYLE[s]?.pill}

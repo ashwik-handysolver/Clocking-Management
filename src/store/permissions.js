@@ -31,16 +31,21 @@ export const canDeleteItem = (user, item, hasTime = false) =>
  * (including yourself, for a subtask you took on) and the admin can change everything.
  */
 export const isAssignedByOther = (user, item) =>
-  item?.type === "subtask" && (item.assignees ?? []).includes(user.id) && item.assignedBy !== user.id;
-/**
- * Subtask details (name, dates, assignees…): the admin or whoever assigned it.
- * Everyone else — including people only viewing someone else's subtask — can't edit them.
- */
-export const canEditDetails = (user, item) => isAdmin(user) || item?.type !== "subtask" || item.assignedBy === user.id;
+  item?.type === "subtask" && (item.assignees ?? []).includes(user.id) && creatorOf(item) !== user.id;
+/** Who created a task or subtask (older subtasks may only have "assigned by"). */
+export const creatorOf = (item) => item?.createdBy ?? item?.assignedBy;
 
-/** Status: also the subtask's assignees. People just viewing someone else's subtask can't change it. */
+/**
+ * Task and subtask details (name, due date, priority, assignees…): only whoever created it, nobody else.
+ * Clients and projects: the admin.
+ */
+export const canEditDetails = (user, item) => (isWork(item) ? creatorOf(item) === user.id : isAdmin(user));
+
+/** Status: the creator, plus a subtask's assignees. */
 export const canChangeStatus = (user, item) =>
-  isAdmin(user) || item?.type !== "subtask" || item.assignedBy === user.id || (item.assignees ?? []).includes(user.id);
+  canEditDetails(user, item) || (item?.type === "subtask" && (item.assignees ?? []).includes(user.id));
+
+const isWork = (item) => item?.type === "task" || item?.type === "subtask";
 
 /** Everyone sees all clients, projects, tasks and subtasks (only assignees can clock in, see canClockOn). */
 export const canSeeItem = () => true;

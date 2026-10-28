@@ -59,6 +59,21 @@ export async function setDesktopNotifications(on) {
   return "on";
 }
 
+/** Shows a sample desktop notification after `delayMs`, so you can switch to another tab first. */
+export function sendTestNotification(delayMs = 5000) {
+  setTimeout(() => {
+    try {
+      const note = new Notification("Test: new subtask assigned to you", { body: "Desktop notifications are working.", tag: "n-test" });
+      note.onclick = () => {
+        window.focus();
+        note.close();
+      };
+    } catch {
+      /* not supported here */
+    }
+  }, delayMs);
+}
+
 function showDesktop(n) {
   if (!desktopNotificationsOn() || document.visibilityState === "visible") return;
   try {

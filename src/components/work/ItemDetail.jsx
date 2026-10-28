@@ -36,15 +36,17 @@ function Stat({ icon, color = "brand", label, value, sub, valueClass, aside }) {
 
 /** Roll-up numbers for a client, project or task. */
 function Summary({ item, seconds }) {
-  const { index, memberById } = useStore();
+  const { index, memberById, me } = useStore();
   const work = descendants(index, item.id).slice(1).filter(isWork);
   const prog = progressOf(index, item.id);
   // Same units as Progress: subtasks, plus tasks that have no subtasks.
   const open = prog.total - prog.done;
   const today = todayKey();
   const overdue = work.filter((x) => isOverdue(x, today)).length;
-  const logged = seconds.get(item.id) ?? 0;
-  const estimate = item.type === "task" ? item.estimate ?? work.reduce((s, x) => s + (x.estimate ?? 0), 0) : 0;
+  // On a task, "your time" covers only the subtasks assigned to you, measured against their estimates.
+  const mySubtasks = item.type === "task" ? work.filter((x) => x.type === "subtask" && assigneesOf(x).includes(me.id)) : [];
+  const logged = item.type === "task" ? mySubtasks.reduce((s, x) => s + (seconds.get(x.id) ?? 0), 0) : seconds.get(item.id) ?? 0;
+  const estimate = mySubtasks.reduce((s, x) => s + (x.estimate ?? 0), 0);
   // People = assignees only; who clocked time is private.
   const people = [...new Set(work.flatMap(assigneesOf))]
     .map((id) => memberById.get(id))
@@ -84,7 +86,7 @@ function Summary({ item, seconds }) {
           color="brand"
           label="Your time"
           value={formatHours(logged)}
-          sub={estimate ? `of ${estimate}h estimated` : people.length ? `${people.length} people assigned` : "No time yet"}
+          sub={estimate ? `of ${estimate}h estimated for you` : item.type === "task" ? "No subtasks assigned to you" : people.length ? `${people.length} people assigned` : "No time yet"}
           aside={!estimate && people.length ? <AvatarStack members={people} max={3} /> : estimate ? <ProgressRing value={(logged / (estimate * 3600)) * 100} tone={logged > estimate * 3600 ? "red" : "brand"} /> : null}
         />
       </div>
@@ -200,7 +202,8 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
               </h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed whitespace-pre-wrap text-stone-500">{item.description || "No description yet."}</p>
             </div>
-            {addType && (
+            {/* Subtasks are added from the header or the last row of the list, so no button here. */}
+            {addType && addType !== "subtask" && (
               <Button variant="primary" icon={Plus} onClick={() => openItemForm({ type: addType, contextId: projectId ?? item.id, lockType: true, ...(isClient && { billing }) })}>
                 Add {TYPE_LABEL[addType].toLowerCase()}
               </Button>

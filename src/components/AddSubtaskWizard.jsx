@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, ChevronRight, CircleDot, Search } from "lucide-react";
-import { billingOf, BILLING_LABEL } from "../store/model";
+import { ancestry, billingOf, BILLING_LABEL } from "../store/model";
 import { useStore } from "../store/store";
 import ItemForm, { TYPE_ICON } from "./ItemForm";
 import { Button, Modal, cx, inputClass } from "./ui";
@@ -12,12 +12,27 @@ const STEPS = [
   { type: "subtask", label: "Subtask" },
 ];
 
-/** Pick client → project → task, each step sliding in, then fill in the subtask form. */
-export default function AddSubtaskWizard({ onClose, toast }) {
+/** Client, project and task above (or at) `contextId`, as far as they go. */
+function presetFrom(index, contextId) {
+  const chain = contextId ? ancestry(index, contextId) : [];
+  const picked = [];
+  for (const type of ["client", "project", "task"]) {
+    const found = chain.find((x) => x.type === type);
+    if (!found) break;
+    picked.push(found.id);
+  }
+  return picked;
+}
+
+/**
+ * Pick client → project → task, each step sliding in, then fill in the subtask form.
+ * Opened from a page (`contextId`), the steps that page already answers are ticked and skipped.
+ */
+export default function AddSubtaskWizard({ contextId, onClose, toast }) {
   const { items, index } = useStore();
-  const [step, setStep] = useState(0);
+  const [picked, setPicked] = useState(() => presetFrom(index, contextId)); // ids chosen so far: [clientId, projectId, taskId]
+  const [step, setStep] = useState(() => picked.length);
   const [dir, setDir] = useState(1); // 1 = forward (slide from right), -1 = back
-  const [picked, setPicked] = useState([]); // ids chosen so far: [clientId, projectId, taskId]
   const [query, setQuery] = useState("");
   const panelRef = useRef(null);
 

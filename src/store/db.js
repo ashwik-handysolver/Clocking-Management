@@ -16,10 +16,11 @@ const iso = (v) => (v == null ? null : new Date(v).toISOString());
 
 const memberFrom = (r) => ({
   id: r.id, authUserId: r.auth_user_id, name: r.name, role: r.role, email: r.email, color: r.color, isAdmin: r.is_admin,
-  removedAt: r.removed_at ? Date.parse(r.removed_at) : null, createdAt: ms(r.created_at),
+  removedAt: r.removed_at ? Date.parse(r.removed_at) : null, createdAt: ms(r.created_at), avatarUrl: r.avatar_url ?? "", phone: r.phone ?? "",
 });
 const memberTo = (m) => ({
   id: m.id, name: m.name, role: m.role ?? "", email: m.email, color: m.color, removed_at: m.removedAt ? iso(m.removedAt) : null,
+  avatar_url: m.avatarUrl || null, phone: m.phone || null,
   is_admin: !!m.isAdmin, // only takes effect when the admin changes someone else (database guard)
 });
 
@@ -216,12 +217,34 @@ export async function deleteSnapshot({ id, path }) {
  * Admin: delete someone's account for good — their sign-in, profile, logged time and screenshots.
  * Screenshot images are removed from the bucket first (the database can't delete stored files).
  */
+/* ---------- Profile pictures (public "avatars" bucket, one folder per sign-in account) ---------- */
+
+/** Uploads a profile picture and returns its public link. Older pictures in your folder are removed. */
+export async function uploadAvatar(authUserId, blob) {
+  const folder = authUserId;
+  const path = `${folder}/avatar-${Date.now()}.jpg`;
+  const { error } = await supabase.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg", cacheControl: "31536000" });
+  if (error) throw error;
+  await removeAvatars(folder, path);
+  return supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+}
+
+/** Removes the pictures in a person's folder (except `keep`). */
+export async function removeAvatars(folder, keep = null) {
+  if (!folder) return;
+  const { data } = await supabase.storage.from("avatars").list(folder);
+  const old = (data ?? []).map((f) => `${folder}/${f.name}`).filter((p) => p !== keep);
+  if (old.length) await supabase.storage.from("avatars").remove(old);
+}
+
 export async function deleteMemberAccount(memberId) {
   const shots = check(await supabase.from("snapshots").select("storage_path").eq("member_id", memberId));
   for (let i = 0; i < shots.length; i += 100) {
     const { error } = await supabase.storage.from("snapshots").remove(shots.slice(i, i + 100).map((s) => s.storage_path));
     if (error) throw error;
   }
+  const { data: member } = await supabase.from("members").select("auth_user_id").eq("id", memberId).maybeSingle();
+  await removeAvatars(member?.auth_user_id).catch(() => {}); // profile picture
   const { error } = await supabase.rpc("admin_delete_member", { p_member: memberId });
   if (error) throw error;
 }

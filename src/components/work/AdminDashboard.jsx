@@ -358,14 +358,14 @@ export default function AdminDashboard() {
         <StatTile icon={CircleSlash} tone="sky" label="Non-billable this week" value={formatHours(total - billable)} sub="Internal and unbilled work" />
       </div>
 
-      {/* Client hours (accordion) beside Workload; same height on wide screens */}
+      {/* Client hours (accordion) beside who's on the clock; same height on wide screens */}
       <div className="grid items-stretch gap-4 xl:grid-cols-[1.15fr_1fr]">
         <ClientHoursCard entries={teamEntries} now={now} />
-        <WorkloadCard />
+        <LiveNow team={team} entries={teamEntries} now={now} />
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <LiveNow team={team} entries={teamEntries} now={now} />
+        <WorkloadCard />
         <TeamHours team={team} entries={teamEntries} now={now} />
       </div>
 

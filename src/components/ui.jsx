@@ -121,10 +121,19 @@ export function PillSelect({ value, options, onChange, styleFor, label, classNam
 
 /* ---------- People ---------- */
 
-const AVATAR_SIZE = { xs: "size-5 text-[9px]", sm: "size-7 text-[10px]", md: "size-9 text-xs", lg: "size-11 text-sm" };
+const AVATAR_SIZE = { xs: "size-5 text-[9px]", sm: "size-7 text-[10px]", md: "size-9 text-xs", lg: "size-11 text-sm", xl: "size-24 text-3xl" };
 
 export function Avatar({ member, size = "md", ring, className }) {
   if (!member) return <span className={cx("inline-block rounded-full bg-stone-200", AVATAR_SIZE[size], className)} />;
+  if (member.avatarUrl)
+    return (
+      <img
+        src={member.avatarUrl}
+        alt=""
+        title={member.name}
+        className={cx("inline-block shrink-0 rounded-full bg-stone-200 object-cover select-none", ring && "ring-2 ring-surface", AVATAR_SIZE[size], className)}
+      />
+    );
   return (
     <span
       title={member.name}

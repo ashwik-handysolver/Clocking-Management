@@ -60,11 +60,12 @@ export default function ClockCard({ subtask }) {
   const elsewhere = myRunning && !onThis ? index.get(myRunning.subtaskId) : null;
   const now = useNow(onThis);
 
-  const mine = sumSeconds(entries, now);
+  const allowed = canClockOn(me, subtask); // only assignees can clock in
+  // Not on this subtask (any more)? Then none of its time counts as yours.
+  const mine = allowed ? sumSeconds(entries, now) : 0;
   const estimateSecs = (subtask.estimate ?? 0) * 3600;
   const pct = estimateSecs ? (mine / estimateSecs) * 100 : 0;
   const done = isDone(subtask);
-  const allowed = canClockOn(me, subtask); // only assignees can clock in
 
   const start = async () => {
     if (await clockIn(subtask.id)) toast(elsewhere ? `Switched timer from “${elsewhere.name}”` : "Timer started · screenshots on");
@@ -150,14 +151,17 @@ export default function ClockCard({ subtask }) {
                   : `You'll be asked to share your screen. A screenshot is taken ${everyLabel}.`}
           </p>
         </div>
-        <div className="grid grid-cols-2 gap-2 @xl:w-72">
-          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-50 to-surface p-3 ring-1 ring-brand-100">
-            <Watermark icon={UserRound} tone="brand" className="!-right-2 !-bottom-3 !size-14" />
-            <p className="relative flex items-center gap-1.5 text-[11px] font-bold text-stone-400 uppercase">
-              <UserRound className="size-3.5 text-brand-500" /> Your time
-            </p>
-            <p className="relative text-lg font-extrabold text-stone-900">{formatHours(mine)}</p>
-          </div>
+        <div className={cx("grid gap-2", allowed ? "grid-cols-2 @xl:w-72" : "grid-cols-1 @xl:w-36")}>
+          {/* Your time: only on subtasks assigned to you */}
+          {allowed && (
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-50 to-surface p-3 ring-1 ring-brand-100">
+              <Watermark icon={UserRound} tone="brand" className="!-right-2 !-bottom-3 !size-14" />
+              <p className="relative flex items-center gap-1.5 text-[11px] font-bold text-stone-400 uppercase">
+                <UserRound className="size-3.5 text-brand-500" /> Your time
+              </p>
+              <p className="relative text-lg font-extrabold text-stone-900">{formatHours(mine)}</p>
+            </div>
+          )}
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-violet-50 to-surface p-3 ring-1 ring-violet-100">
             <Watermark icon={Hourglass} tone="violet" className="!-right-2 !-bottom-3 !size-14" />
             <p className="relative flex items-center gap-1.5 text-[11px] font-bold text-stone-400 uppercase">
@@ -181,13 +185,17 @@ export default function ClockCard({ subtask }) {
         </div>
       )}
 
+      {(allowed || canLogManualTime(me)) && (
       <div className="space-y-3 border-t border-stone-100 bg-stone-50/50 px-5 py-4">
-        <div className="flex items-center gap-3">
-          <ProgressBar value={pct} tone={pct > 100 ? "red" : "brand"} className="flex-1" />
-          <span className={cx("shrink-0 text-xs font-bold", pct > 100 ? "text-red-600" : "text-stone-500")}>
-            {estimateSecs ? `${Math.round(pct)}% of ${subtask.estimate}h` : "No estimate"}
-          </span>
-        </div>
+        {/* Your progress against the estimate: only on subtasks assigned to you */}
+        {allowed && (
+          <div className="flex items-center gap-3">
+            <ProgressBar value={pct} tone={pct > 100 ? "red" : "brand"} className="flex-1" />
+            <span className={cx("shrink-0 text-xs font-bold", pct > 100 ? "text-red-600" : "text-stone-500")}>
+              {estimateSecs ? `${Math.round(pct)}% of ${subtask.estimate}h` : "No estimate"}
+            </span>
+          </div>
+        )}
         {/* Only the admin logs time by hand, for someone assigned to this subtask. */}
         {canLogManualTime(me) && (
           <div className="flex justify-end">
@@ -197,6 +205,7 @@ export default function ClockCard({ subtask }) {
           </div>
         )}
       </div>
+      )}
     </Card>
     </>
   );

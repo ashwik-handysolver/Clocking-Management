@@ -16,7 +16,7 @@ import { AdminPage } from "./AdminPage";
  * they sign up again with the same email and get their old profile back.
  */
 
-const COLORS = ["#f97316", "#2563eb", "#0d9488", "#9333ea", "#db2777", "#ca8a04", "#4f46e5", "#059669", "#dc2626", "#0891b2"];
+export const COLORS = ["#f97316", "#2563eb", "#0d9488", "#9333ea", "#db2777", "#ca8a04", "#4f46e5", "#059669", "#dc2626", "#0891b2"];
 
 export default function TeamPage() {
   const { state, items, teamEntries, me, actions } = useStore();

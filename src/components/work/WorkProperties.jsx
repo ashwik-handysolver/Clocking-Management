@@ -60,7 +60,7 @@ export default function WorkProperties({ item }) {
           styleFor={(s) => STATUS_STYLE[s]?.pill}
           onChange={(status) => update({ status })}
           readOnly={!canChangeStatus(me, item)}
-          readOnlyTitle="Only the people on this subtask, whoever assigned it, or the admin can change its status"
+          readOnlyTitle={item.type === "subtask" ? "Only whoever created this subtask or the people on it can change its status" : "Only whoever created this task can change it"}
         />
       </Prop>
       <Prop icon={Flag} label="Priority">

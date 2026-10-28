@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowUpRight, Camera, Clock, Hourglass, PencilLine, Timer, TriangleAlert } from "lucide-react";
+import { ArrowDownRight, ArrowRight, ArrowUpRight, Camera, Clock, ListChecks, PencilLine, Timer } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
-import { openItem } from "../../lib/router";
-import { DAY, addDays, formatDate, formatHours, formatTime, startOfDay, startOfWeek, todayKey } from "../../lib/time";
-import { ancestry, assigneesOf, entrySeconds, isDone, isOverdue, pathLabel } from "../../store/model";
-import { isAdmin } from "../../store/permissions";
+import { navigate, openItem } from "../../lib/router";
+import { DAY, addDays, formatDate, formatHours, formatTime, startOfDay, startOfWeek } from "../../lib/time";
+import { ancestry, assigneesOf, entrySeconds, isDone, pathLabel } from "../../store/model";
+import { creatorOf, isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import AdminDashboard from "./AdminDashboard";
 import { Hero, HeroStat, StatTile } from "./DashboardParts";
-import { Button, Card, EmptyState, IconChip, cx } from "../ui";
+import { Button, Card, EmptyState, IconChip, StatusIcon, cx } from "../ui";
 
 /*
  * Personal dashboard: only the signed-in user's own time (store/permissions.js).
@@ -197,43 +197,40 @@ function TimeByClient({ entries, now }) {
   );
 }
 
-/** Your open subtasks at or over 80% of their estimate. */
-function OverEstimate({ entries, now }) {
-  const { items, index, me } = useStore();
-  const today = todayKey();
-  const rows = items
-    .filter((s) => s.type === "subtask" && !isDone(s) && assigneesOf(s).includes(me.id))
-    .map((s) => {
-      const secs = entries.filter((e) => e.subtaskId === s.id).reduce((t, e) => t + entrySeconds(e, now), 0);
-      const pct = s.estimate ? (secs / (s.estimate * 3600)) * 100 : 0;
-      return { s, secs, pct, late: isOverdue(s, today) };
-    })
-    .filter((r) => r.late || r.pct >= 80)
-    .sort((a, b) => b.late - a.late || b.pct - a.pct);
+const RECENT_SUBTASKS = 7;
+
+/** The newest subtasks assigned to you, with a link to the full list on My work. */
+function RecentSubtasks() {
+  const { items, index, me, memberById } = useStore();
+  const recent = items
+    .filter((s) => s.type === "subtask" && assigneesOf(s).includes(me.id))
+    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+    .slice(0, RECENT_SUBTASKS);
 
   return (
-    <Card className="bg-gradient-to-br from-brand-50/70 via-surface to-surface p-5">
-      <SectionTitle icon={Hourglass} title="Near or over estimate" />
-      {!rows.length ? (
-        <p className="py-6 text-center text-sm text-stone-400">All your open subtasks are on time and within their estimates.</p>
+    <Card className="flex flex-col bg-gradient-to-br from-brand-50/70 via-surface to-surface p-5">
+      <SectionTitle icon={ListChecks} title="Recent subtasks">
+        <Button variant="ghost" size="sm" onClick={() => navigate("my")}>
+          View all <ArrowRight className="size-3.5" />
+        </Button>
+      </SectionTitle>
+      {!recent.length ? (
+        <p className="py-8 text-center text-sm text-stone-400">No subtasks assigned to you yet.</p>
       ) : (
-        <ul className="space-y-3">
-          {rows.map(({ s, secs, pct, late }) => {
-            const over = pct > 100 || late;
+        <ul className="-mx-2 flex-1 space-y-0.5">
+          {recent.map((s) => {
+            const by = memberById.get(creatorOf(s));
             return (
               <li key={s.id}>
-                <button type="button" onClick={() => openItem(s.id)} className="group block w-full text-left">
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="truncate text-sm font-bold text-stone-800 group-hover:text-brand-700">{s.name}</span>
-                    <span className={cx("flex shrink-0 items-center gap-1 text-xs font-bold", over ? "text-red-600" : "text-amber-600")}>
-                      {over && <TriangleAlert className="size-3.5" />}
-                      {late ? "Late" : over ? "Over" : "Close"} · {formatHours(secs)}
-                      {s.estimate ? ` of ${s.estimate}h` : ""}
-                    </span>
+                <button type="button" onClick={() => openItem(s.id)} className="group flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-brand-50/70">
+                  <StatusIcon status={s.status} className="size-[18px] shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className={cx("block truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(s) && "!text-stone-400 line-through")}>{s.name}</span>
+                    <span className="block truncate text-xs text-stone-400">{pathLabel(index, s.id).replaceAll(" / ", " › ")}</span>
                   </span>
-                  <span className="block truncate text-xs text-stone-400">{pathLabel(index, s.id).replaceAll(" / ", " › ")}</span>
-                  <span className="mt-1.5 block h-1.5 rounded-full bg-stone-100">
-                    <span className={cx("block h-full rounded-full", over ? "bg-red-500" : "bg-amber-400")} style={{ width: `${s.estimate ? Math.min(100, pct) : 100}%` }} />
+                  <span className="shrink-0 text-right text-[11px] leading-tight text-stone-400">
+                    {s.createdAt ? formatDate(s.createdAt) : ""}
+                    {by && <span className="block font-semibold text-stone-500">{by.id === me.id ? "by you" : `by ${by.name.split(" ")[0]}`}</span>}
                   </span>
                 </button>
               </li>
@@ -373,13 +370,11 @@ function PersonalDashboard() {
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <WeekChart entries={entries} now={now} />
-        <TimeByClient entries={entries} now={now} />
+        <RecentSubtasks />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_1.4fr]">
-        <OverEstimate entries={entries} now={now} />
-        <RecentSessions entries={entries} now={now} />
-      </div>
+      <RecentSessions entries={entries} now={now} />
+      <TimeByClient entries={entries} now={now} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, BellRing, ChevronDown, ChevronRight, LogOut, Menu, Moon, Plus, Search, Square, Sun, Timer } from "lucide-react";
+import { Bell, BellRing, ChevronDown, ChevronRight, LogOut, Menu, Moon, Pencil, Plus, Search, Square, Sun, Timer } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { useTheme } from "../../hooks/useTheme";
 import { navigate, openItem } from "../../lib/router";
@@ -12,10 +12,10 @@ import { useDialogs } from "../dialogs";
 import { Avatar, Button, Popover, cx } from "../ui";
 import CommandPalette from "./CommandPalette";
 import AddSubtaskWizard from "../AddSubtaskWizard";
-import { desktopNotificationsOn, desktopPermission, setDesktopNotifications } from "../Notifications";
+import { desktopNotificationsOn, desktopPermission, sendTestNotification, setDesktopNotifications } from "../Notifications";
 import { Logo } from "./Sidebar";
 
-const PAGE_TITLE = { my: "My work", dashboard: "Dashboard", team: "Team", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive" };
+const PAGE_TITLE = { my: "My work", dashboard: "Dashboard", account: "My account", team: "Team", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive" };
 
 /** HH:MM:SS where each digit rolls up when it changes. */
 function RollingClock({ seconds }) {
@@ -74,13 +74,7 @@ function TimerPill() {
   const running = runningEntryOf(state.entries, me.id);
   const now = useNow(Boolean(running));
 
-  if (!running) {
-    return (
-      <span className="hidden animate-fade-in items-center gap-2 rounded-full bg-stone-100 px-3 py-2 text-xs font-semibold text-stone-500 md:flex">
-        <Timer className="size-4" /> Not clocked in
-      </span>
-    );
-  }
+  if (!running) return null;
 
   const sub = index.get(running.subtaskId);
   const elapsed = entrySeconds(running, now);
@@ -228,7 +222,8 @@ export default function Topbar({ newType, selectedId, page, onOpenMenu }) {
         </div>
       </header>
       {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
-      {wizardOpen && <AddSubtaskWizard onClose={() => setWizardOpen(false)} toast={toast} />}
+      {/* Starts from the page you're on: on a task or subtask page, straight at the subtask form */}
+      {wizardOpen && <AddSubtaskWizard contextId={selectedId} onClose={() => setWizardOpen(false)} toast={toast} />}
     </>
   );
 }
@@ -257,8 +252,9 @@ function ProfileMenu() {
   const [notify, setNotify] = useState(() =>
     desktopPermission() === "unsupported" ? "unsupported" : desktopNotificationsOn() ? "on" : "off",
   );
+  const [testSent, setTestSent] = useState(false);
   const clocking = Boolean(runningEntryOf(state.entries, me.id));
-  const role = me.isAdmin ? "Admin" : me.role || "Team member";
+  const role =me.isAdmin ? "Admin" : me.role || "Team member";
   return (
     <Popover
       align="right"
@@ -295,7 +291,21 @@ function ProfileMenu() {
             <div className="relative flex items-center gap-3">
               <Avatar member={me} size="lg" className="shadow-soft ring-2 ring-surface" />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-extrabold text-stone-900">{me.name}</p>
+                <p className="flex items-center gap-1.5 text-sm font-extrabold text-stone-900">
+                  <span className="truncate">{me.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      close();
+                      navigate("account");
+                    }}
+                    aria-label="Edit your profile"
+                    title="Edit your profile"
+                    className="grid size-6 shrink-0 place-items-center rounded-full bg-surface/80 text-stone-500 ring-1 ring-stone-200 transition hover:bg-brand-500 hover:text-white hover:ring-brand-500"
+                  >
+                    <Pencil className="size-3" />
+                  </button>
+                </p>
                 <p className="truncate text-xs text-stone-500">{me.email}</p>
               </div>
             </div>
@@ -325,6 +335,19 @@ function ProfileMenu() {
                     <span className={cx("absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-transform", notify === "on" && "translate-x-4")} />
                   </span>
                 </button>
+                {notify === "on" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sendTestNotification();
+                      setTestSent(true);
+                      setTimeout(() => setTestSent(false), 6000);
+                    }}
+                    className="mt-1 pl-[26px] text-left text-[11px] font-semibold text-brand-600 hover:underline"
+                  >
+                    {testSent ? "Sending in 5 seconds… switch to another tab" : "Send a test notification"}
+                  </button>
+                )}
                 {notify === "blocked" && (
                   <p className="mt-1 pl-[26px] text-[11px] leading-snug text-red-600">Blocked by your browser. Allow notifications for this site (padlock icon in the address bar), then switch on again.</p>
                 )}

@@ -9,6 +9,7 @@ import { DialogsProvider } from "./components/dialogs";
 import Notifications from "./components/Notifications";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
+import AccountPage from "./components/AccountPage";
 import { cx } from "./components/ui";
 import ItemDetail from "./components/work/ItemDetail";
 import Dashboard from "./components/work/Dashboard";
@@ -61,9 +62,9 @@ function useStoredFlag(key) {
   return [on, setOn];
 }
 
-const PAGES = ["my", "dashboard", "work", ...ADMIN_PAGES];
+const PAGES = ["my", "dashboard", "work", "account", ...ADMIN_PAGES];
 const PAGE_TITLE = {
-  my: "My work", dashboard: "Dashboard", work: "Clients & Projects", team: "Team", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive",
+  my: "My work", dashboard: "Dashboard", account: "My account", work: "Clients & Projects", team: "Team", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive",
 };
 
 function Shell() {
@@ -126,6 +127,10 @@ function Shell() {
         ) : page === "dashboard" ? (
           <main className="mt-5">
             <Dashboard />
+          </main>
+        ) : page === "account" ? (
+          <main className="mt-5">
+            <AccountPage />
           </main>
         ) : (
           <main className="mt-5 space-y-5">

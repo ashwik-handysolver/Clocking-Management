@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
-  Archive, CalendarRange, Camera, FileBarChart, ChevronsUpDown, FolderKanban, LayoutDashboard, ListTodo, LogOut, Pin, PinOff, Users, X,
+  Archive, CalendarRange, Camera, CircleUserRound, FileBarChart, ChevronsUpDown, FolderKanban, LayoutDashboard, ListTodo, LogOut, Pin, PinOff, Users, X,
 } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { ADMIN_PAGES, openItem, useRoute } from "../../lib/router";
@@ -18,6 +18,7 @@ const NAV = [
   { icon: ListTodo, label: "My work", page: "my" },
   { icon: FolderKanban, label: "Clients & Projects", page: "work" },
   { icon: Camera, label: "Screenshots", page: "screenshots" },
+  { icon: CircleUserRound, label: "My account", page: "account" },
 ];
 
 // Shown only to the admin, under their own heading.

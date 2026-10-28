@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Camera, ChevronLeft, ChevronRight, ImageOff, Trash, X } from "lucide-react";
+import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ImageOff, Search, Trash, X } from "lucide-react";
 import { addDays, formatDate, formatTime, fromDateKey, startOfWeek, toDateKey } from "../../lib/time";
 import { navigate, openItem, useRoute } from "../../lib/router";
-import { ancestry, pathLabel, workingMembers } from "../../store/model";
+import { ancestry, assigneesOf, pathLabel, workingMembers } from "../../store/model";
 import { deleteSnapshot, listSnapshots, snapshotUrls } from "../../store/db";
 import { useDialogs } from "../dialogs";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
-import { Avatar, Card, EmptyState, Field, Select, cx, inputClass } from "../ui";
+import { Avatar, Card, EmptyState, Field, Popover, Select, cx, inputClass } from "../ui";
 import { AdminPage, Pager } from "./AdminPage";
 
 /*
@@ -34,6 +34,7 @@ export default function ScreenshotsPage() {
 
   const [clientId, setClientId] = useState(() => scopeClient?.id ?? "");
   const [memberId, setMemberId] = useState("");
+  const [subtaskId, setSubtaskId] = useState("");
   const [from, setFrom] = useState(() => toDateKey(scope?.createdAt ?? startOfWeek(Date.now())));
   const [to, setTo] = useState(() => toDateKey(Date.now()));
   const [page, setPage] = useState(0);
@@ -85,9 +86,25 @@ export default function ScreenshotsPage() {
           const chain = entry ? ancestry(index, entry.subtaskId) : [];
           return { ...s, chain, subtask: chain.find((x) => x.type === "subtask"), client: chain.find((x) => x.type === "client") };
         })
+        // Team members: only screenshots from subtasks they're assigned to.
+        .filter((s) => admin || (s.subtask && assigneesOf(s.subtask).includes(me.id)))
         .filter((s) => !clientId || s.client?.id === clientId)
+        .filter((s) => !subtaskId || s.subtask?.id === subtaskId)
         .filter((s) => !scopeId || s.chain.some((x) => x.id === scopeId)),
-    [shots, entryById, index, clientId, scopeId],
+    [shots, entryById, index, clientId, subtaskId, scopeId, admin, me.id],
+  );
+
+  // Subtask choices: in the chosen client (and task scope); for team members, only ones assigned to them.
+  const subtaskOptions = useMemo(
+    () =>
+      state.items
+        .filter((s) => s.type === "subtask" && (admin || assigneesOf(s).includes(me.id)))
+        .filter((s) => {
+          const chain = ancestry(index, s.id);
+          return (!clientId || chain.some((x) => x.id === clientId)) && (!scopeId || chain.some((x) => x.id === scopeId));
+        })
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    [state.items, admin, me.id, index, clientId, scopeId],
   );
   const pages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const visible = filtered.slice(page * PER_PAGE, (page + 1) * PER_PAGE);
@@ -130,10 +147,31 @@ export default function ScreenshotsPage() {
             </button>
           </div>
         )}
-        <div className={cx("grid gap-3", admin ? "@xl:grid-cols-4" : "@xl:grid-cols-3")}>
+        <div className={cx("grid gap-3 @lg:grid-cols-2", admin ? "@4xl:grid-cols-5" : "@3xl:grid-cols-4")}>
           <Field label="Client">
-            <Select value={clientId} onChange={resetPage(setClientId)} options={[{ value: "", label: "All clients" }, ...clients.map((c) => ({ value: c.id, label: c.name }))]} />
+            <Select
+              value={clientId}
+              onChange={(e) => {
+                setClientId(e.target.value);
+                setSubtaskId(""); // the subtask may not belong to the new client
+                setPage(0);
+              }}
+              options={[{ value: "", label: "All clients" }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
+            />
           </Field>
+          {/* Not a <label>: the picker is a button + list */}
+          <div className="min-w-0">
+            <span className="mb-1.5 block text-xs font-bold text-stone-600">Subtask</span>
+            <SubtaskPicker
+              value={subtaskId}
+              options={subtaskOptions}
+              index={index}
+              onChange={(id) => {
+                setSubtaskId(id);
+                setPage(0);
+              }}
+            />
+          </div>
           {admin && (
             <Field label="Team member">
               <Select value={memberId} onChange={resetPage(setMemberId)} options={[{ value: "", label: "Everyone" }, ...team.map((m) => ({ value: m.id, label: m.name }))]} />
@@ -211,6 +249,67 @@ export default function ScreenshotsPage() {
         />
       )}
     </AdminPage>
+  );
+}
+
+/** A subtask dropdown with a search box. `options` are subtask items. */
+function SubtaskPicker({ value, options, index, onChange }) {
+  const [query, setQuery] = useState("");
+  const selected = value ? index.get(value) : null;
+  const q = query.trim().toLowerCase();
+  const shown = options
+    .map((s) => ({ s, path: pathLabel(index, s.id).replaceAll(" / ", " › ") }))
+    .filter(({ s, path }) => !q || s.name.toLowerCase().includes(q) || path.toLowerCase().includes(q));
+  const row = "flex w-full items-start gap-2 rounded-xl px-2.5 py-2 text-left hover:bg-stone-50";
+  return (
+    <Popover
+      align="left"
+      className="w-80 max-w-[calc(100vw-2rem)]"
+      trigger={({ toggle, open }) => (
+        <button type="button" onClick={toggle} aria-expanded={open} className={cx(inputClass, "flex items-center gap-2 text-left")}>
+          <span className={cx("min-w-0 flex-1 truncate", !selected && "text-stone-500")}>{selected?.name ?? "All subtasks"}</span>
+          <ChevronDown className={cx("size-4 shrink-0 text-stone-400 transition-transform", open && "rotate-180")} />
+        </button>
+      )}
+    >
+      {(close) => {
+        const choose = (id) => {
+          onChange(id);
+          setQuery("");
+          close();
+        };
+        return (
+          <>
+            <label className="relative mb-1 block">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-stone-400" />
+              <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search subtasks…" className={cx(inputClass, "h-10 pl-9")} />
+            </label>
+            <ul className="max-h-72 overflow-y-auto scrollbar-thin">
+              {!q && (
+                <li>
+                  <button type="button" onClick={() => choose("")} className={row}>
+                    <span className="flex-1 text-sm font-semibold text-stone-700">All subtasks</span>
+                    {!value && <Check className="size-4 shrink-0 text-brand-600" />}
+                  </button>
+                </li>
+              )}
+              {shown.map(({ s, path }) => (
+                <li key={s.id}>
+                  <button type="button" onClick={() => choose(s.id)} className={row}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-stone-800">{s.name}</span>
+                      <span className="block truncate text-xs text-stone-400">{path}</span>
+                    </span>
+                    {value === s.id && <Check className="size-4 shrink-0 text-brand-600" />}
+                  </button>
+                </li>
+              ))}
+              {!shown.length && <li className="px-2.5 py-4 text-center text-sm text-stone-400">No subtasks match “{query}”.</li>}
+            </ul>
+          </>
+        );
+      }}
+    </Popover>
   );
 }
 
