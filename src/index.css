@@ -1,0 +1,207 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --color-brand-50: #fff5ed;
+  --color-brand-100: #ffe8d4;
+  --color-brand-200: #ffcca8;
+  --color-brand-300: #ffa871;
+  --color-brand-400: #ff8a45;
+  --color-brand-500: #ff6b1a;
+  --color-brand-600: #f05306;
+  --color-brand-700: #c73e07;
+  --color-brand-800: #9e320e;
+  --color-brand-900: #7f2c0f;
+
+  /* Chart series: billable vs non-billable. Validated for colour-blind separation in both themes. */
+  --color-chart-billable: #eb6834;
+  --color-chart-non: #2a78d6;
+  --color-chart-todo: #1f9e89; /* 3rd series (workload: To do); validated with the two above */
+
+  --color-canvas: #f4f1ec;
+  /* Card / panel background. Use bg-surface (not bg-white) so dark mode can swap it. */
+  --color-surface: #ffffff;
+
+  --shadow-soft: 0 1px 2px rgb(28 25 23 / 0.04), 0 8px 24px -8px rgb(28 25 23 / 0.08);
+  --shadow-float: 0 12px 40px -12px rgb(28 25 23 / 0.18);
+  --shadow-glow: 0 10px 24px -8px rgb(255 107 26 / 0.55);
+
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --animate-pulse-dot: pulse-dot 1.6s ease-in-out infinite;
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .4; transform: scale(.75); }
+  }
+  --animate-pop: pop .16s ease-out;
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(6px) scale(.98); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* Clocking indicator (header) — transform/opacity only, so they stay cheap. */
+  --animate-clock-in: clock-in .5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes clock-in {
+    from { opacity: 0; transform: translateX(12px) scale(.92); }
+    to { opacity: 1; transform: none; }
+  }
+  --animate-ping-soft: ping-soft 2.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  @keyframes ping-soft {
+    0% { opacity: .55; transform: scale(1); }
+    75%, 100% { opacity: 0; transform: scale(1.85); }
+  }
+  --animate-digit: digit .32s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes digit {
+    from { opacity: 0; transform: translateY(60%); }
+    to { opacity: 1; transform: none; }
+  }
+  --animate-sweep: sweep 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  @keyframes sweep {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(400%); }
+  }
+  /* Fills a ring once per minute; stroke-dasharray on the circle must be 100 (pathLength=100). */
+  --animate-minute: minute 60s linear infinite;
+  @keyframes minute {
+    from { stroke-dashoffset: 100; }
+    to { stroke-dashoffset: 0; }
+  }
+
+  /* Subtask side panel */
+  --animate-panel-in: panel-in .38s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes panel-in {
+    from { opacity: 0; transform: translateX(28px); }
+    to { opacity: 1; transform: none; }
+  }
+  --animate-fade-in: fade-in .25s ease-out both;
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-canvas text-sm text-stone-800 antialiased;
+  }
+  button:not(:disabled), [role="button"] {
+    @apply cursor-pointer;
+  }
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-brand-500;
+  }
+  ::selection {
+    @apply bg-brand-200 text-stone-900;
+  }
+}
+
+@layer components {
+  .page-glow {
+    background-image:
+      radial-gradient(60rem 30rem at 100% -10%, rgb(255 107 26 / 0.1), transparent 60%),
+      radial-gradient(40rem 24rem at -10% 110%, rgb(255 168 113 / 0.1), transparent 60%);
+  }
+
+  /* Page content makes room for the floating sidebar. The sidebar sets data-sidebar on <html>. */
+  .app-content {
+    padding-left: 12px;
+  }
+  @media (min-width: 64rem) {
+    .app-content {
+      padding-left: 108px;
+      transition: padding-left 450ms var(--ease-smooth);
+    }
+    [data-sidebar="expanded"] .app-content {
+      padding-left: 284px;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .app-content,
+    aside {
+      transition: none !important;
+    }
+  }
+}
+
+@utility scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(168 162 158 / 0.5) transparent;
+}
+
+/*
+ * Dark mode: <html class="dark"> swaps the palette instead of every component carrying dark: classes.
+ * Stone greys flip (light text, dark fills), pale tints become deep tints, deep text shades lighten.
+ * Elements that are dark in both themes (sidebar, toasts, overlays) add .palette-fixed to keep the originals.
+ */
+html.dark {
+  color-scheme: dark;
+
+  --color-canvas: #121010;
+  --color-surface: #1c1917;
+  --color-chart-billable: #d95926;
+  --color-chart-non: #3987e5;
+  --color-chart-todo: #2aa894;
+
+  --color-stone-50: #24201d;
+  --color-stone-100: #2d2926;
+  --color-stone-200: #3b3633;
+  --color-stone-300: #57514c;
+  --color-stone-400: #8f8882;
+  --color-stone-500: #a8a29e;
+  --color-stone-600: #c4beb8;
+  --color-stone-700: #d6d1cc;
+  --color-stone-800: #e7e4e0;
+  --color-stone-900: #f5f3f1;
+  --color-stone-950: #fafaf9;
+
+  --color-brand-50: #2b1b11;
+  --color-brand-100: #3d2414;
+  --color-brand-200: #5c311a;
+  --color-brand-700: #ffa871;
+  --color-brand-800: #ffcca8;
+
+  --color-red-50: #2c1515;
+  --color-red-100: #3f1b1b;
+  --color-red-700: #fca5a5;
+  --color-emerald-50: #11261d;
+  --color-emerald-100: #153526;
+  --color-emerald-700: #6ee7b7;
+  --color-amber-50: #2a2111;
+  --color-amber-100: #3b2d13;
+  --color-amber-700: #fcd34d;
+  --color-violet-50: #1f1930;
+  --color-violet-100: #2b2244;
+  --color-violet-700: #c4b5fd;
+  --color-sky-50: #10222f;
+  --color-sky-100: #133248;
+  --color-sky-700: #7dd3fc;
+
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+  --shadow-float: 0 12px 40px -12px rgb(0 0 0 / 0.7);
+}
+
+html.dark .palette-fixed {
+  --color-stone-50: #fafaf9;
+  --color-stone-100: #f5f5f4;
+  --color-stone-200: #e7e5e4;
+  --color-stone-300: #d6d3d1;
+  --color-stone-400: #a8a29e;
+  --color-stone-500: #78716c;
+  --color-stone-600: #57534e;
+  --color-stone-700: #44403c;
+  --color-stone-800: #292524;
+  --color-stone-900: #1c1917;
+  --color-stone-950: #0c0a09;
+}
+
+/* The sidebar sits on the dark canvas in dark mode; a hairline keeps its edge visible. */
+html.dark aside.palette-fixed {
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.06), var(--shadow-float);
+}
+
+html.dark .page-glow {
+  opacity: 0.6;
+}
