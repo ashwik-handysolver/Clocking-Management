@@ -42,12 +42,14 @@ const fade = (expanded) =>
 export function Logo({ compact, dark, labelClass }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 shadow-glow">
-        <span className="text-[15px] font-extrabold tracking-tighter text-white">hs</span>
-      </span>
+      {/* The HandySolver "hs" mark (same file as the favicon) */}
+      <img src="/favicon.svg" alt="HandySolver" className={cx("size-10 shrink-0 rounded-[8px] shadow-soft", dark && "ring-1 ring-white/15")} />
       {!compact && (
-        <span className={cx("text-[17px] font-extrabold tracking-tight whitespace-nowrap", dark ? "text-white" : "text-stone-900", labelClass)}>
-          handy<span className="text-brand-500">solver</span>
+        <span className={cx("leading-tight whitespace-nowrap", labelClass)}>
+          <span className={cx("block text-[17px] font-extrabold tracking-tight", dark ? "text-white" : "text-stone-900")}>
+            Clock<span className="text-brand-500">work</span>
+          </span>
+          <span className={cx("block text-[11px] font-semibold", dark ? "text-white/50" : "text-stone-400")}>by HandySolver</span>
         </span>
       )}
     </div>

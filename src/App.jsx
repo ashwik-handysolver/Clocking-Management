@@ -94,7 +94,7 @@ function Shell() {
   }, [route.page, route.id, routeItem, page]);
 
   useEffect(() => {
-    document.title = `${routeItem ? routeItem.name : PAGE_TITLE[page]} · HandySolver`;
+    document.title = `${routeItem ? routeItem.name : PAGE_TITLE[page]} · Clockwork`;
     setMenuOpen(false);
   }, [routeItem, page]);
 

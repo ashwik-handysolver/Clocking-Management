@@ -77,7 +77,7 @@ export function sendTestNotification(delayMs = 5000) {
 function showDesktop(n) {
   if (!desktopNotificationsOn() || document.visibilityState === "visible") return;
   try {
-    const note = new Notification(n.title, { body: n.body || "Open HandySolver to start working on it", tag: `n-${n.id}` });
+    const note = new Notification(n.title, { body: n.body || "Open Clockwork to start working on it", tag: `n-${n.id}` });
     note.onclick = () => {
       window.focus();
       if (n.item_id) openItem(n.item_id);
