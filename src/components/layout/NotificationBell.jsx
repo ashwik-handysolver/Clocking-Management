@@ -88,7 +88,7 @@ export default function NotificationBell() {
           {!list.length ? (
             <div className="flex flex-col items-center gap-2 px-4 py-10 text-center text-sm text-stone-400">
               <BellOff className="size-6" />
-              Nothing yet. You'll see subtasks assigned to you here.
+              Nothing yet. You'll see subtasks assigned to you, and your subtasks others complete, here.
             </div>
           ) : (
             <ul className="max-h-[60vh] divide-y divide-stone-100 overflow-y-auto scrollbar-thin">

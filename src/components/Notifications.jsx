@@ -5,11 +5,11 @@ import { useStore } from "../store/store";
 import { useDialogs } from "./dialogs";
 
 /*
- * Assignment notifications. The database creates one whenever someone is added to a subtask
- * (notify_assignees trigger). Here we:
- *  - at sign-in, show the ones that arrived while you were away (then mark them read);
- *  - while signed in, show new ones instantly (Supabase Realtime);
- *  - when this tab is in the background and you've allowed it, also show a desktop notification.
+ * Notifications. The database creates them: when someone is added to a subtask (notify_assignees),
+ * and when someone else marks a subtask you created Completed (notify_completed). Here we:
+ *  - at sign-in, show the ones that arrived while you were away (then mark them shown);
+ *  - while signed in, show new ones instantly (Supabase Realtime), with a 30-second safety check;
+ *  - when you're not looking at the app and you've allowed it, also show a desktop notification.
  * Renders nothing.
  */
 
@@ -84,7 +84,7 @@ function showDesktop(n) {
   // Another tab, another app, or a minimised window: notify on the desktop.
   if (!desktopNotificationsOn() || lookingAtApp()) return;
   try {
-    const note = new Notification(n.title, { body: n.body || "Open Clockwork to start working on it", tag: `n-${n.id}` });
+    const note = new Notification(n.title, { body: n.body || "Open Clockwork to see it", tag: `n-${n.id}` });
     note.onclick = () => {
       window.focus();
       if (n.item_id) openItem(n.item_id);
@@ -131,7 +131,7 @@ export default function Notifications() {
       const shown = firstTime ? missed.slice(0, CATCH_UP_SHOWN) : missed;
       shown.reverse().forEach(show);
       if (firstTime && missed.length > CATCH_UP_SHOWN)
-        toast(`…and ${missed.length - CATCH_UP_SHOWN} more subtasks were assigned to you while you were away`, "notify", { detail: "See them all under the bell" });
+        toast(`…and ${missed.length - CATCH_UP_SHOWN} more notifications while you were away`, "notify", { detail: "See them all under the bell" });
       missed.forEach((n) => seen.current.add(n.id));
       markShown(missed.map((n) => n.id));
     };
