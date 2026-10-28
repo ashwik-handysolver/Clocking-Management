@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { ChevronDown, ExternalLink, Folder, Pencil, Plus } from "lucide-react";
+import { ChevronDown, ExternalLink, Folder, Pencil, Plus, Trash } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { dueInfo, formatHours } from "../../lib/time";
 import { BILLING_LABEL, CHILD_TYPE, billingOf, statusChoices, TYPE_LABEL, assigneesOf, hasAssignee, isDone, isWork, progressOf } from "../../store/model";
-import { canChangeStatus, canEditDetails } from "../../store/permissions";
+import { canChangeStatus, canDeleteItem, canEditDetails } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Segmented } from "../admin/AdminPage";
 import { useDialogs } from "../dialogs";
@@ -11,6 +11,7 @@ import { TYPE_ICON } from "../ItemForm";
 import { Avatar, AvatarStack, Button, EmptyState, PillSelect, PriorityLabel, ProgressRing, STATUS_STYLE, StatusIcon, cx } from "../ui";
 import ClockCard, { ClockButton } from "./ClockCard";
 import WorkProperties from "./WorkProperties";
+import { useDeleteItem } from "./useDeleteItem";
 
 const DUE_TONE = { danger: "text-red-600 font-bold", warning: "text-amber-600 font-semibold", default: "text-stone-500", muted: "text-stone-400" };
 
@@ -182,7 +183,9 @@ export default function ChildrenList({ item, billing, seconds }) {
 /** A subtask opened in place on its task page: properties, description and the clock. */
 function SubtaskDetails({ subtask }) {
   const { openItemForm } = useDialogs();
-  const { me } = useStore();
+  const { me, teamEntries } = useStore();
+  const askDelete = useDeleteItem(); // warns with the clockings and screenshots that go too
+  const hasTime = teamEntries.some((e) => e.subtaskId === subtask.id);
   return (
     <div className="animate-fade-in space-y-3 px-3 pb-3">
       {subtask.description && <p className="px-1 text-sm whitespace-pre-wrap text-stone-600">{subtask.description}</p>}
@@ -197,6 +200,11 @@ function SubtaskDetails({ subtask }) {
         <Button size="sm" variant="ghost" icon={ExternalLink} onClick={() => openItem(subtask.id)}>
           Open full page
         </Button>
+        {canDeleteItem(me, subtask, hasTime) && (
+          <Button size="sm" variant="dangerGhost" icon={Trash} onClick={() => askDelete(subtask)}>
+            Delete
+          </Button>
+        )}
       </div>
     </div>
   );
