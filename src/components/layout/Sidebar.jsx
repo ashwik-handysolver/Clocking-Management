@@ -142,7 +142,7 @@ export default function Sidebar({ pinnedOpen, onTogglePinned, mobileOpen, onClos
   const expanded = pinnedOpen || hovered;
   const route = useRoute();
   const { me, actions } = useStore();
-  const currentPage = ["work", "dashboard", ...ADMIN_PAGES].includes(route.page) ? route.page : "my";
+  const currentPage = ["work", "dashboard", "account", ...ADMIN_PAGES].includes(route.page) ? route.page : "my";
 
   // The page reads this attribute in CSS (.app-content) to make room — same frame as our width change.
   useLayoutEffect(() => {
