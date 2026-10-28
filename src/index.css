@@ -75,6 +75,12 @@
     from { opacity: 0; transform: translateX(28px); }
     to { opacity: 1; transform: none; }
   }
+  /* Stepping back in a stepped dialog: slide in from the left */
+  --animate-panel-back: panel-back .38s cubic-bezier(0.22, 1, 0.36, 1) both;
+  @keyframes panel-back {
+    from { opacity: 0; transform: translateX(-28px); }
+    to { opacity: 1; transform: none; }
+  }
   --animate-fade-in: fade-in .25s ease-out both;
   @keyframes fade-in {
     from { opacity: 0; }

@@ -46,13 +46,17 @@ function initialValues(item, type, me) {
  * Create: pass `type` and optionally `contextId` (the selected item, used to preselect a parent).
  * Edit: pass `id`.
  */
-export default function ItemForm({ id, type: initialType = "client", contextId, billing: billingProp, lockType, onClose, toast }) {
+/**
+ * `parentId` presets the parent (and hides its picker). `embedded` renders just the form,
+ * for use inside another dialog, with a Back button that calls `onBack`.
+ */
+export default function ItemForm({ id, type: initialType = "client", contextId, parentId: presetParent, billing: billingProp, lockType, embedded, onBack, onClose, toast }) {
   const { state, items, index, actions, me } = useStore();
   const editing = id ? index.get(id) : null;
   const [type, setType] = useState(editing?.type ?? initialType);
   const [values, setValues] = useState(() => {
     const v = initialValues(editing, editing?.type ?? initialType, me);
-    if (!editing) v.parentId = resolveParent(index, contextId, initialType);
+    if (!editing) v.parentId = presetParent || resolveParent(index, contextId, initialType);
     v.billing = (editing && billingOf(index, editing.id)) || billingProp || (contextId && billingOf(index, contextId)) || "billable";
     return v;
   });
@@ -163,24 +167,14 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
     onClose();
   };
 
-  return (
-    <Modal
-      as="form"
-      onSubmit={submit}
-      noValidate
-      size="lg"
-      title={editing ? `Edit ${TYPE_LABEL[type].toLowerCase()}` : `New ${TYPE_LABEL[type].toLowerCase()}`}
-      subtitle={editing ? pathLabel(index, editing.id, { includeSelf: true }) : undefined}
-      onClose={onClose}
-      footer={
-        <>
-          <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary">
-            {editing ? "Save changes" : `Create ${TYPE_LABEL[type].toLowerCase()}`}
-          </Button>
-        </>
-      }
-    >
+  const submitButton = (
+    <Button type="submit" variant="primary">
+      {editing ? "Save changes" : `Create ${TYPE_LABEL[type].toLowerCase()}`}
+    </Button>
+  );
+
+  const body = (
+    <>
       {!editing && !lockType && (
         <div className={cx("mb-5 grid gap-1 rounded-2xl bg-stone-100 p-1", canCreate(me, "client") ? "grid-cols-4" : "grid-cols-2")}>
           {TYPES.filter((t) => canCreate(me, t)).map((t) => {
@@ -204,7 +198,7 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
       )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        {parentType && (
+        {parentType && !presetParent && (
           <Field label={TYPE_LABEL[parentType]} required error={errors.parentId} className="sm:col-span-2">
             <Select
               value={values.parentId}
@@ -367,6 +361,37 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
           </span>
         </Field>
       </div>
+    </>
+  );
+
+  if (embedded)
+    return (
+      <form onSubmit={submit} noValidate>
+        {body}
+        <div className="sticky bottom-0 -mx-6 mt-5 -mb-5 flex justify-between gap-2 border-t border-stone-100 bg-surface px-6 py-4">
+          <Button onClick={onBack}>Back</Button>
+          {submitButton}
+        </div>
+      </form>
+    );
+
+  return (
+    <Modal
+      as="form"
+      onSubmit={submit}
+      noValidate
+      size="lg"
+      title={editing ? `Edit ${TYPE_LABEL[type].toLowerCase()}` : `New ${TYPE_LABEL[type].toLowerCase()}`}
+      subtitle={editing ? pathLabel(index, editing.id, { includeSelf: true }) : undefined}
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancel</Button>
+          {submitButton}
+        </>
+      }
+    >
+      {body}
     </Modal>
   );
 }
