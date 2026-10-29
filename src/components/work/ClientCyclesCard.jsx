@@ -29,10 +29,21 @@ function niceMax(max) {
 }
 
 export default function ClientCyclesCard({ entries, now }) {
-  const { allIndex: index, state } = useStore();
+  const { allIndex: index, state, me } = useStore();
   const today = todayKey();
+  // Team members: only clients they're assigned work in (the admin sees every client).
+  const myClientIds = useMemo(() => {
+    if (me.isAdmin) return null;
+    const ids = new Set();
+    for (const s of state.items)
+      if (s.type === "subtask" && (s.assignees ?? []).includes(me.id)) {
+        const c = ancestry(index, s.id).find((x) => x.type === "client");
+        if (c) ids.add(c.id);
+      }
+    return ids;
+  }, [me, state.items, index]);
   const clients = state.items
-    .filter((i) => i.type === "client" && !i.archived && i.budgetHours)
+    .filter((i) => i.type === "client" && !i.archived && i.budgetHours && (!myClientIds || myClientIds.has(i.id)))
     .sort((a, b) => a.name.localeCompare(b.name));
   const [pickedId, setPickedId] = useState(null);
   const client = clients.find((c) => c.id === pickedId) ?? clients[0];

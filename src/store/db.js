@@ -159,6 +159,15 @@ export function subscribeAll(onChange) {
   return () => supabase.removeChannel(channel);
 }
 
+/**
+ * Clockings on clients that have client hours, for the "Billing cycles" chart: everyone's, without names.
+ * Team members get the clients they're assigned work in; the admin gets all.
+ */
+export async function loadClientHoursEntries() {
+  const rows = check(await supabase.rpc("client_hours_entries"));
+  return rows.map((r, i) => ({ id: `ch-${i}`, subtaskId: r.subtask_id, start: ms(r.start_at), end: ms(r.end_at), billing: r.billing }));
+}
+
 /* ---------- Clock-in check-ins ---------- */
 
 /** "Still clocked in": sent every ~30 s by the tab that is sharing its screen. */

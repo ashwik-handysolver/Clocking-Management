@@ -7,6 +7,8 @@ import { ancestry, assigneesOf, entrySeconds, isDone, pathLabel } from "../../st
 import { creatorOf, isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import AdminDashboard from "./AdminDashboard";
+import ClientCyclesCard from "./ClientCyclesCard";
+import { loadClientHoursEntries } from "../../store/db";
 import { Hero, HeroStat, StatTile } from "./DashboardParts";
 import { Button, Card, EmptyState, IconChip, StatusIcon, cx } from "../ui";
 
@@ -327,10 +329,32 @@ export default function Dashboard() {
   return isAdmin(me) ? <AdminDashboard /> : <PersonalDashboard />;
 }
 
+/**
+ * Everyone's clockings (no names) on the clients you work in, for the Billing cycles chart.
+ * Your own data only has your time, so this comes from the database separately: on load, when your
+ * own clockings change, and every 2 minutes while the page is showing.
+ */
+function useClientHoursEntries(ownEntries) {
+  const [list, setList] = useState([]);
+  const ownKey = ownEntries.map((e) => `${e.id}:${e.end ?? ""}`).join("|");
+  useEffect(() => {
+    let alive = true;
+    const load = () => document.visibilityState === "visible" && loadClientHoursEntries().then((l) => alive && setList(l)).catch(() => {});
+    load();
+    const timer = setInterval(load, 120_000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+  }, [ownKey]);
+  return list;
+}
+
 function PersonalDashboard() {
   const { entries, me } = useStore(); // your own time only
   const running = entries.some((e) => e.end == null);
   const now = useNow(running, 30_000);
+  const clientEntries = useClientHoursEntries(entries);
 
   const weekStart = startOfWeek(now);
   const thisWeek = secondsBetween(entries, weekStart, now + 1, now);
@@ -373,8 +397,14 @@ function PersonalDashboard() {
         <RecentSubtasks />
       </div>
 
-      <div className="grid items-start gap-4 xl:grid-cols-[1.4fr_1fr]">
+      {/* If there's no chart to show (no client with hours), Recent sessions takes the full width */}
+      <div className="grid items-start gap-4 xl:grid-cols-2 [&>*:only-child]:col-span-full">
         <RecentSessions entries={entries} now={now} />
+        {/* The team's billable hours per billing cycle, for the clients you work in */}
+        <ClientCyclesCard entries={clientEntries} now={now} />
+      </div>
+
+      <div>
         <TimeByClient entries={entries} now={now} />
       </div>
     </div>

@@ -15,7 +15,10 @@ export async function startScreenCapture({ onEnded }) {
   const track = stream.getVideoTracks()[0];
   // Chrome may treat the frame-rate hint loosely and capture the screen up to 30 times a second.
   // We only need a still every few minutes, so cap it hard at 1 frame per second.
-  await track.applyConstraints({ frameRate: { max: 1 } }).catch(() => {});
+  // Screenshots are saved at most 1920 wide, so capture at that size too instead of full resolution.
+  await track.applyConstraints({ frameRate: { max: 1 }, width: { max: MAX_WIDTH } }).catch(() =>
+    track.applyConstraints({ frameRate: { max: 1 } }).catch(() => {}),
+  );
 
   // Chrome/Edge grab frames straight from the stream (ImageCapture). Other browsers need a playing
   // video to copy frames from; it's only created there, since keeping it playing costs CPU the whole time.
