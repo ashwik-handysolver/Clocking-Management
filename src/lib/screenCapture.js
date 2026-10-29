@@ -33,6 +33,11 @@ export async function startScreenCapture({ onEnded }) {
   };
   const canGrab = "ImageCapture" in window;
   if (!canGrab) await startVideo();
+  // ONE frame reader for the whole session. Creating a new one per screenshot left the old ones
+  // attached to the stream, each still receiving full-size frames, so CPU use grew with every screenshot.
+  const reader = canGrab ? new window.ImageCapture(track) : null;
+  const settings = track.getSettings?.() ?? {};
+  console.info(`Screen capture started: ${settings.width}×${settings.height} at up to ${settings.frameRate ?? "?"} frame(s) per second`);
 
   const handleEnded = () => onEnded?.();
   track.addEventListener("ended", handleEnded);
@@ -42,9 +47,9 @@ export async function startScreenCapture({ onEnded }) {
     async grab() {
       let source = null;
       // ImageCapture keeps working when this tab is in the background.
-      if (canGrab) {
+      if (reader && track.readyState === "live") {
         try {
-          source = await new window.ImageCapture(track).grabFrame();
+          source = await reader.grabFrame();
         } catch {
           /* fall back to a video element */
         }

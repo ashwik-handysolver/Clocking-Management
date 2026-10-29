@@ -10,6 +10,7 @@ import Notifications from "./components/Notifications";
 import Sidebar from "./components/layout/Sidebar";
 import Topbar from "./components/layout/Topbar";
 import AccountPage from "./components/AccountPage";
+import OfflineBanner from "./components/layout/OfflineBanner";
 import { cx } from "./components/ui";
 import ItemDetail from "./components/work/ItemDetail";
 import Dashboard from "./components/work/Dashboard";
@@ -115,6 +116,7 @@ function Shell() {
       {/* Left padding follows the sidebar via CSS (see .app-content), so hovering never re-renders the page. */}
       <div className="app-content pt-3 pr-3 pb-6 lg:pr-4">
         <Topbar newType={newType} selectedId={routeItem?.id} page={page} onOpenMenu={() => setMenuOpen(true)} />
+        <OfflineBanner />
 
         {ADMIN_PAGES.includes(page) ? (
           <main className="mt-5">

@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { snapshotMinutesFor } from "../config";
 import { DEVICE_ID, acquireLock, lockHeldElsewhere, lockIsLive, readLock, releaseLock, watchLock } from "../lib/clockLock";
 import { startScreenCapture } from "../lib/screenCapture";
-import { saveSnapshot } from "../lib/snapshotStore";
+import { flushSnapshots, saveOrQueueSnapshot } from "../lib/snapshotStore";
 import { readBeat, sendBeat } from "../store/db";
 import { ancestry, runningEntryOf, uid } from "../store/model";
 import { useStore } from "../store/store";
@@ -49,9 +49,10 @@ export function ClockProvider({ children }) {
     if (!session.current || !entry || entry.id !== ownEntry.current) return; // not this tab's clocking
     try {
       const { blob } = await session.current.grab();
-      await saveSnapshot({ id: uid("snap"), entryId: entry.id, memberId: entry.memberId, memberName: latest.current.name, takenAt: Date.now(), blob });
+      // Offline: kept and uploaded when the connection is back.
+      await saveOrQueueSnapshot({ id: uid("snap"), entryId: entry.id, memberId: entry.memberId, memberName: latest.current.name, takenAt: Date.now(), blob });
     } catch (err) {
-      console.warn("Screenshot failed", err);
+      console.warn("Screenshot not uploaded yet", err);
     }
   }, []);
 
@@ -70,10 +71,35 @@ export function ClockProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capturing, running?.id, everyMs, shoot]);
 
-  // Timer stopped some other way (e.g. by the admin): stop sharing too.
+  // Connection trouble: when check-ins last failed (or the browser went offline). Used to tell an
+  // outage apart from a deliberate stop.
+  const netTroubleAt = useRef(0);
+  const lastSubtask = useRef(null); // the subtask this tab's clocking is on
+  if (running && running.id === ownEntry.current) lastSubtask.current = running.subtaskId;
   useEffect(() => {
-    if (capturing && !running) endCapture();
-  }, [capturing, running, endCapture]);
+    const onOffline = () => (netTroubleAt.current = Date.now());
+    window.addEventListener("offline", onOffline);
+    return () => window.removeEventListener("offline", onOffline);
+  }, []);
+
+  // The timer stopped while this tab is still sharing its screen.
+  // - After a connection drop: the server stopped it at the last check-in (it can't tell an outage from a
+  //   closed tab). Start a new clocking on the same subtask with the same screen share, and say so;
+  //   the offline gap isn't counted, since nothing checked in during it.
+  // - Otherwise (e.g. the admin stopped it): stop sharing too.
+  useEffect(() => {
+    if (!capturing || running || ownEntry.current === "pending") return;
+    const outage = Date.now() - netTroubleAt.current < 15 * 60_000;
+    const subtaskId = lastSubtask.current;
+    if (outage && session.current && subtaskId && latest.current.index.get(subtaskId) && navigator.onLine) {
+      netTroubleAt.current = 0;
+      ownEntry.current = actions.startTimer(subtaskId, { screenCapture: true }) ?? null;
+      toast("Your connection dropped, so the time you were offline wasn't counted. Your timer has started again.");
+      return;
+    }
+    endCapture();
+    toast("Your timer was stopped elsewhere, so screen sharing here stopped");
+  }, [capturing, running, endCapture, actions, toast]);
 
   // The account clocked in on another device (or tab), replacing this tab's clocking: stop sharing here.
   useEffect(() => {
@@ -88,7 +114,12 @@ export function ClockProvider({ children }) {
   // server's cleanup job) treat a timer without recent check-ins as abandoned.
   useEffect(() => {
     if (!capturing || !running || running.id !== ownEntry.current) return;
-    const beat = () => sendBeat(me.id, running.id, DEVICE_ID).catch(() => {}); // a missed one is retried next time
+    // A missed check-in is retried next time (and marks connection trouble). A good one also
+    // uploads any screenshots that were kept while offline.
+    const beat = () =>
+      sendBeat(me.id, running.id, DEVICE_ID)
+        .then(() => flushSnapshots())
+        .catch(() => (netTroubleAt.current = Date.now()));
     beat();
     const timer = setInterval(beat, BEAT_MS);
     return () => clearInterval(timer);

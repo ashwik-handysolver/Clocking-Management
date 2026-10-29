@@ -22,9 +22,48 @@ const slug = (s) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 30) || "member";
 
+/*
+ * Offline: a screenshot that can't be uploaded waits here (in memory, up to MAX_WAITING) and is
+ * uploaded when the connection is back. Kept in this tab only, so closing the tab drops them.
+ */
+const MAX_WAITING = 40; // ~40 × 300 KB at most
+const waiting = [];
+let flushing = false;
+
+/** Saves a screenshot now, or keeps it to upload later if the connection is down. */
+export async function saveOrQueueSnapshot(shot) {
+  try {
+    await saveSnapshot(shot);
+    flushSnapshots(); // connection works: send anything still waiting
+  } catch (err) {
+    if (waiting.length >= MAX_WAITING) waiting.shift(); // keep the newest
+    waiting.push(shot);
+    throw err;
+  }
+}
+
+/** Uploads waiting screenshots, oldest first; stops at the first failure and tries again later. */
+export async function flushSnapshots() {
+  if (flushing || !waiting.length) return;
+  flushing = true;
+  try {
+    while (waiting.length) {
+      await saveSnapshot(waiting[0]);
+      waiting.shift();
+    }
+  } catch {
+    /* still offline: try again on the next screenshot or when the connection returns */
+  } finally {
+    flushing = false;
+  }
+}
+
+if (typeof window !== "undefined") window.addEventListener("online", () => flushSnapshots());
+
 export async function saveSnapshot({ id, entryId, memberId, memberName, takenAt, blob }) {
-  const { data } = await supabase.auth.getUser();
-  const authId = data.user?.id;
+  // From the saved session (no network call), so it also works right after reconnecting.
+  const { data } = await supabase.auth.getSession();
+  const authId = data.session?.user?.id;
   if (!authId) throw new Error("Not signed in");
   const d = new Date(takenAt);
   const day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -32,14 +71,16 @@ export async function saveSnapshot({ id, entryId, memberId, memberName, takenAt,
   const path = `${slug(memberName)}-${authId.slice(0, 8)}/${day}/${time}.jpg`;
 
   const upload = await supabase.storage.from("snapshots").upload(path, blob, { contentType: blob.type || "image/jpeg" });
-  if (upload.error) throw upload.error;
+  // "Already exists": an earlier try uploaded the image but lost the connection before saving its record.
+  const exists = upload.error && (String(upload.error.statusCode) === "409" || /exists/i.test(upload.error.message ?? ""));
+  if (upload.error && !exists) throw upload.error;
 
   const record = { id, member_id: memberId, entry_id: entryId, taken_at: d.toISOString(), storage_path: path };
   // The first screenshot is taken right at clock-in, possibly before the new time entry has been saved,
   // so wait and retry if the entry isn't in the database yet (foreign key error 23503).
   for (let attempt = 0; ; attempt++) {
     const { error } = await supabase.from("snapshots").insert(record);
-    if (!error) return;
+    if (!error || error.code === "23505") return; // 23505: record already saved by an earlier try
     if (error.code !== "23503" || attempt >= 4) throw error;
     await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
   }
