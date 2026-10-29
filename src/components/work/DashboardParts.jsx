@@ -1,4 +1,5 @@
 import { IconChip, Watermark, cx } from "../ui";
+import { CountUp } from "../motion";
 
 /*
  * Shared dashboard pieces: the bold header banner and the colourful stat tiles.
@@ -38,7 +39,9 @@ export function HeroStat({ label, value, live, sub }) {
         {live && <span className="size-2 animate-pulse-dot rounded-full bg-emerald-400" />}
         {label}
       </p>
-      <p className="text-xl font-extrabold tabular-nums">{value}</p>
+      <p className="text-xl font-extrabold tabular-nums">
+        <CountUp text={value} />
+      </p>
       {sub && <p className="text-[11px] font-semibold text-white/75">{sub}</p>}
     </div>
   );
@@ -62,7 +65,9 @@ export function StatTile({ icon, tone = "brand", label, value, sub }) {
         <p className="text-xs font-bold tracking-wide text-stone-600 uppercase">{label}</p>
         <IconChip icon={icon} tone={tone} size="sm" />
       </div>
-      <p className="relative mt-2 text-3xl font-black tracking-tight text-stone-900 tabular-nums">{value}</p>
+      <p className="relative mt-2 text-3xl font-black tracking-tight text-stone-900 tabular-nums">
+        <CountUp text={value} />
+      </p>
       {sub && <div className="relative mt-0.5 truncate text-xs font-medium text-stone-600">{sub}</div>}
     </div>
   );

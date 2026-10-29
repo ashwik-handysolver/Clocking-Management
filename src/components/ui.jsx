@@ -215,22 +215,55 @@ export function TintCard({ tone = "brand", icon, className, children, ...props }
   );
 }
 
+/**
+ * True once the element behind `ref` has scrolled into view (and stays true), so bars, rings and
+ * numbers start from empty and fill up when you actually see them. Without IntersectionObserver
+ * (or with reduced motion) it's true straight away.
+ */
+export function useInViewOnce(ref) {
+  const [seen, setSeen] = useState(
+    () => typeof IntersectionObserver === "undefined" || (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches),
+  );
+  useEffect(() => {
+    if (seen || !ref.current) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      // The huge top margin counts anything already scrolled past (above the screen) as seen,
+      // so jumping to the bottom of a page doesn't leave numbers at 0.
+      { rootMargin: "100000px 0px -40px 0px" },
+    );
+    io.observe(ref.current);
+    return () => io.disconnect();
+  }, [seen, ref]);
+  return seen;
+}
+
 export function ProgressBar({ value, tone = "brand", className }) {
+  const ref = useRef(null);
+  const shown = useInViewOnce(ref);
   const color = { brand: "bg-brand-500", green: "bg-emerald-500", red: "bg-red-500", white: "bg-surface" }[tone];
   return (
-    <div className={cx("h-2 overflow-hidden rounded-full", tone === "white" ? "bg-white/25" : "bg-stone-100", className)}>
-      <div className={cx("h-full rounded-full transition-all duration-500", color)} style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+    <div ref={ref} className={cx("h-2 overflow-hidden rounded-full", tone === "white" ? "bg-white/25" : "bg-stone-100", className)}>
+      <div className={cx("h-full rounded-full transition-all duration-700 ease-smooth", color)} style={{ width: `${shown ? Math.min(100, Math.max(0, value)) : 0}%` }} />
     </div>
   );
 }
 
 export function ProgressRing({ value, size = 44, stroke = 5, tone = "brand", children }) {
+  const ref = useRef(null);
+  const shown = useInViewOnce(ref);
   const r = (size - stroke) / 2;
   const c = 2 * Math.PI * r;
-  const pct = Math.min(100, Math.max(0, value));
+  const pct = shown ? Math.min(100, Math.max(0, value)) : 0;
+  const label = Math.min(100, Math.max(0, value));
   const color = { brand: "stroke-brand-500", green: "stroke-emerald-500", red: "stroke-red-500" }[tone];
   return (
-    <span className="relative inline-grid shrink-0 place-items-center" style={{ width: size, height: size }}>
+    <span ref={ref} className="relative inline-grid shrink-0 place-items-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
         <circle cx={size / 2} cy={size / 2} r={r} strokeWidth={stroke} className="fill-none stroke-stone-100" />
         <circle
@@ -244,7 +277,7 @@ export function ProgressRing({ value, size = 44, stroke = 5, tone = "brand", chi
           className={cx("fill-none transition-all duration-700", color)}
         />
       </svg>
-      <span className="absolute text-[11px] font-bold text-stone-700">{children ?? `${Math.round(pct)}%`}</span>
+      <span className="absolute text-[11px] font-bold text-stone-700">{children ?? `${Math.round(label)}%`}</span>
     </span>
   );
 }

@@ -313,10 +313,27 @@ export default function ScreenshotsPage() {
           </div>
         </div>
         {error && <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        {shots != null && !sessions.length ? (
+        {shots == null ? (
+          // Loading: pale placeholders shaped like a couple of sessions
+          <div aria-hidden="true" className="space-y-3">
+            {[0, 1].map((n) => (
+              <div key={n} className="animate-skeleton rounded-2xl bg-stone-50/80 p-3 ring-1 ring-stone-900/5">
+                <div className="mb-2.5 flex items-center gap-3">
+                  <span className="size-7 rounded-full bg-stone-200" />
+                  <span className="h-3 w-48 rounded-full bg-stone-200" />
+                </div>
+                <div className={cx("grid gap-2", GRID[density])}>
+                  {Array.from({ length: PREVIEW[density] }, (_, i) => (
+                    <span key={i} className="aspect-video rounded-xl bg-stone-200/70" />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : !sessions.length ? (
           <EmptyState icon={Camera} title="No screenshots for these filters" />
         ) : (
-          <div className="space-y-6">
+          <div className="stagger space-y-6">
             {days.map(({ day, sessions: list }) => (
               <section key={day}>
                 <h3 className="mb-2 text-xs font-extrabold tracking-widest text-stone-400 uppercase">

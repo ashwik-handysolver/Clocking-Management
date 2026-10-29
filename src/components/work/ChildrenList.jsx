@@ -9,6 +9,7 @@ import { Segmented } from "../admin/AdminPage";
 import { useDialogs } from "../dialogs";
 import { TYPE_ICON } from "../ItemForm";
 import { Avatar, AvatarStack, Button, EmptyState, PillSelect, PriorityLabel, ProgressRing, STATUS_STYLE, StatusIcon, ADD_HINT, cx } from "../ui";
+import { Collapse, DoneName, DonePop } from "../motion";
 import ClockCard, { ClockButton } from "./ClockCard";
 import WorkProperties from "./WorkProperties";
 import { useDeleteItem } from "./useDeleteItem";
@@ -74,7 +75,7 @@ export default function ChildrenList({ item, billing, seconds }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div key={who} className="stagger space-y-2"> {/* switching tabs: rows fade up again */}
       {tabs && <div className="pb-1">{tabs}</div>}
       {children.map((c) => {
         const work = isWork(c);
@@ -87,7 +88,7 @@ export default function ChildrenList({ item, billing, seconds }) {
         const expanded = inline && openId === c.id;
         const activate = () => (inline ? setOpenId(expanded ? null : c.id) : openItem(c.id));
         return (
-          <div key={c.id} className={cx("rounded-2xl transition", expanded ? "bg-brand-50/60 ring-2 ring-brand-200" : "bg-stone-50")}>
+          <div key={c.id} data-item-id={c.id} className={cx("rounded-2xl transition", expanded ? "bg-brand-50/60 ring-2 ring-brand-200" : "bg-stone-50")}>
           <div
             role="button"
             tabIndex={0}
@@ -111,7 +112,9 @@ export default function ChildrenList({ item, billing, seconds }) {
               </span>
             )}
             <div className="min-w-0 flex-1">
-              <p className={cx("truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(c) && "!text-stone-400 line-through")}>{c.name}</p>
+              <p className={cx("truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(c) && "!text-stone-400")}>
+                <DoneName item={c}>{c.name}</DoneName>
+              </p>
               <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-stone-400">
                 {work ? (
                   <>
@@ -139,15 +142,17 @@ export default function ChildrenList({ item, billing, seconds }) {
                       <Avatar member={memberById.get(c.createdBy)} size="sm" />
                     </span>
                   )}
-                  <PillSelect
-                    label="Status"
-                    readOnly={!canChangeStatus(me, c)}
-                    value={c.status}
-                    options={statusChoices(c.status)}
-                    styleFor={(s) => STATUS_STYLE[s]?.pill}
-                    onChange={(status) => actions.updateItem(c.id, { status })}
-                    className="ring-1 ring-stone-900/5"
-                  />
+                  <DonePop item={c}>
+                    <PillSelect
+                      label="Status"
+                      readOnly={!canChangeStatus(me, c)}
+                      value={c.status}
+                      options={statusChoices(c.status)}
+                      styleFor={(s) => STATUS_STYLE[s]?.pill}
+                      onChange={(status) => actions.updateItem(c.id, { status })}
+                      className="ring-1 ring-stone-900/5"
+                    />
+                  </DonePop>
                 </>
               ) : (
                 <ProgressRing value={prog.pct} tone="green" size={40} stroke={4} />
@@ -155,7 +160,9 @@ export default function ChildrenList({ item, billing, seconds }) {
               {inline && <ChevronDown className={cx("size-4 shrink-0 text-stone-400 transition-transform", expanded && "rotate-180")} />}
             </div>
           </div>
-          {expanded && <SubtaskDetails subtask={c} />}
+          <Collapse open={expanded}>
+            <SubtaskDetails subtask={c} />
+          </Collapse>
           </div>
         );
       })}

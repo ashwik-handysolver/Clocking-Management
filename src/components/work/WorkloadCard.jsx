@@ -90,17 +90,20 @@ export default function WorkloadCard() {
                   className="relative flex h-2.5 gap-[2px] rounded-full bg-stone-100"
                   aria-label={`${r.m.name}: ${SERIES.map(({ status }) => `${hrs(r.by[status])} ${status.toLowerCase()}`).join(", ")}`}
                 >
-                  {(() => {
-                    // Round only the outer ends of whichever segments are present.
-                    const present = SERIES.filter(({ status }) => r.by[status] > 0);
-                    return present.map(({ status, swatch }, i) => (
-                      <div
-                        key={status}
-                        className={cx("h-full", swatch, i === 0 && "rounded-l-full", i === present.length - 1 && "rounded-r-full")}
-                        style={{ width: `${(r.by[status] / max) * 100}%` }}
-                      />
-                    ));
-                  })()}
+                  {/* The coloured part grows in from the left */}
+                  <div className="flex h-full w-full origin-left animate-grow-x gap-[2px]">
+                    {(() => {
+                      // Round only the outer ends of whichever segments are present.
+                      const present = SERIES.filter(({ status }) => r.by[status] > 0);
+                      return present.map(({ status, swatch }, i) => (
+                        <div
+                          key={status}
+                          className={cx("h-full", swatch, i === 0 && "rounded-l-full", i === present.length - 1 && "rounded-r-full")}
+                          style={{ width: `${(r.by[status] / max) * 100}%` }}
+                        />
+                      ));
+                    })()}
+                  </div>
                 </div>
                 {hover === r.m.id && r.total > 0 && (
                   <span className="palette-fixed pointer-events-none absolute -top-2 right-0 z-20 -translate-y-full rounded-xl bg-stone-900 px-3 py-2 text-xs whitespace-nowrap text-white shadow-float">

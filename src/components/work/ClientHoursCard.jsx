@@ -6,6 +6,7 @@ import { byUrgency, cycleStats } from "../../store/clientHours";
 import { ancestry, clientCycle, descendants } from "../../store/model";
 import { useStore } from "../../store/store";
 import { Avatar, AvatarStack, Button, Card, IconChip, cx } from "../ui";
+import { Collapse } from "../motion";
 import HolidaysDialog from "./HolidaysDialog";
 
 /*
@@ -139,8 +140,8 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
       </button>
 
       {/* Details */}
-      {open && (
-        <div id={panelId} className="animate-fade-in space-y-3 px-3.5 pb-3.5">
+      <Collapse open={open}>
+        <div id={panelId} className="space-y-3 px-3.5 pb-3.5">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
             <span className="flex items-center gap-1 text-stone-500">
               <CalendarClock className="size-3.5" />
@@ -230,7 +231,7 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
             </button>
           </div>
         </div>
-      )}
+      </Collapse>
     </li>
   );
 }

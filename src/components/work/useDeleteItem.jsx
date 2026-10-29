@@ -4,6 +4,7 @@ import { TYPE_LABEL, descendants, entrySeconds } from "../../store/model";
 import { countSnapshotsForEntries, deleteSnapshotsForEntries } from "../../store/db";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
+import { foldAway } from "../motion";
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -78,6 +79,7 @@ export function useDeleteItem() {
           toast(`Couldn't delete the screenshots, so nothing was deleted: ${err.message ?? err}`, "error");
           return;
         }
+        await foldAway(item.id); // the row folds away first, if it's on screen
         actions.deleteItem(item.id);
         after?.();
         toast(`${TYPE_LABEL[item.type]} deleted`);

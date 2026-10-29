@@ -144,7 +144,7 @@ export default function ClientCyclesCard({ entries, now }) {
                   const over = c.seconds > target;
                   return (
                     <div
-                      key={c.start}
+                      key={`${client.id}-${c.start}`} // a new client's bars grow in again
                       tabIndex={0}
                       onMouseEnter={() => setHover(i)}
                       onFocus={() => setHover(i)}
@@ -154,16 +154,16 @@ export default function ClientCyclesCard({ entries, now }) {
                     >
                       <div
                         className={cx(
-                          "absolute bottom-0 left-1/2 w-full max-w-14 -translate-x-1/2 rounded-t-[4px] transition-[filter]",
+                          "absolute inset-x-0 bottom-0 mx-auto w-full max-w-14 origin-bottom animate-grow-y rounded-t-[4px] transition-[filter]",
                           over ? "bg-red-500" : c.current ? "bg-brand-300" : "bg-brand-500",
                           hover === i && "brightness-110",
                         )}
-                        style={{ height: c.seconds ? `${Math.max(1.5, pct(c.seconds))}%` : "2px" }}
+                        style={{ height: c.seconds ? `${Math.max(1.5, pct(c.seconds))}%` : "2px", animationDelay: `${i * 60}ms` }}
                       />
-                      {/* Hours just above the bar (the plot keeps headroom for it) */}
+                      {/* Hours just above the bar (the plot keeps headroom for it); appear once the bar has grown */}
                       <span
-                        className={cx("absolute inset-x-0 text-center text-xs font-extrabold tabular-nums", over ? "text-red-600" : "text-stone-800")}
-                        style={{ bottom: `calc(${pct(c.seconds)}% + 4px)` }}
+                        className={cx("absolute inset-x-0 animate-fade-in text-center text-xs font-extrabold tabular-nums", over ? "text-red-600" : "text-stone-800")}
+                        style={{ bottom: `calc(${pct(c.seconds)}% + 4px)`, animationDelay: `${300 + i * 60}ms` }}
                       >
                         {formatHours(c.seconds)}
                       </span>

@@ -18,6 +18,7 @@ export default function NotificationBell() {
   const { me, memberById } = useStore();
   const [list, setList] = useState([]);
   const [fresh, setFresh] = useState(new Set()); // ids that were unread when the bell was opened
+  const [ring, setRing] = useState(0); // goes up with each live notification: the bell shakes once
   const unread = list.filter((n) => !n.read_at).length;
 
   useEffect(() => {
@@ -33,9 +34,10 @@ export default function NotificationBell() {
     // New ones arrive live (its own channel; the pop-ups use another).
     const channel = supabase
       .channel(`bell-${me.id}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `member_id=eq.${me.id}` }, ({ new: n }) =>
-        setList((l) => [n, ...l.filter((x) => x.id !== n.id)].slice(0, LIMIT)),
-      )
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `member_id=eq.${me.id}` }, ({ new: n }) => {
+        setList((l) => [n, ...l.filter((x) => x.id !== n.id)].slice(0, LIMIT));
+        setRing((r) => r + 1); // shake the bell
+      })
       .subscribe();
     return () => {
       alive = false;
@@ -70,9 +72,13 @@ export default function NotificationBell() {
             open ? "bg-brand-50 text-brand-600 ring-2 ring-brand-300" : "text-stone-500 hover:bg-stone-100 hover:text-stone-800",
           )}
         >
-          <Bell className="size-[19px]" />
+          {/* Keyed by `ring`: each new notification remounts it, so it shakes once */}
+          <Bell key={ring} className={cx("size-[19px] origin-top", ring > 0 && "animate-wiggle")} />
           {unread > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-extrabold text-white ring-2 ring-surface">
+            <span
+              key={unread} // pops whenever the count changes
+              className="absolute -top-0.5 -right-0.5 grid h-[18px] min-w-[18px] animate-badge-pop place-items-center rounded-full bg-brand-500 px-1 text-[10px] font-extrabold text-white ring-2 ring-surface"
+            >
               {unread > 9 ? "9+" : unread}
             </span>
           )}
@@ -91,7 +97,7 @@ export default function NotificationBell() {
               Nothing yet. You'll see subtasks assigned to you, and your subtasks others complete, here.
             </div>
           ) : (
-            <ul className="max-h-[60vh] divide-y divide-stone-100 overflow-y-auto scrollbar-thin">
+            <ul className="stagger max-h-[60vh] divide-y divide-stone-100 overflow-y-auto scrollbar-thin">
               {list.map((n) => {
                 const isNew = fresh.has(n.id);
                 return (

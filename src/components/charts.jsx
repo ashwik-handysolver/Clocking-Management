@@ -77,9 +77,12 @@ export function StackedBars({ rows }) {
               </Label>
               <span className="shrink-0 text-sm font-bold text-stone-900 tabular-nums">{formatHours(total)}</span>
             </div>
-            <div className="flex h-2.5 gap-[2px] rounded-full bg-stone-100" aria-label={`${r.label}: ${formatHours(r.billable)} billable, ${formatHours(r.non)} non-billable`}>
-              {r.billable > 0 && <div className="h-full rounded-l-full bg-chart-billable" style={{ width: `${(r.billable / max) * 100}%`, borderRadius: r.non ? undefined : 9999 }} />}
-              {r.non > 0 && <div className="h-full rounded-r-full bg-chart-non" style={{ width: `${(r.non / max) * 100}%`, borderRadius: r.billable ? undefined : 9999 }} />}
+            <div className="h-2.5 rounded-full bg-stone-100" aria-label={`${r.label}: ${formatHours(r.billable)} billable, ${formatHours(r.non)} non-billable`}>
+              {/* The coloured part grows in from the left */}
+              <div className="flex h-full origin-left animate-grow-x gap-[2px]">
+                {r.billable > 0 && <div className="h-full rounded-l-full bg-chart-billable" style={{ width: `${(r.billable / max) * 100}%`, borderRadius: r.non ? undefined : 9999 }} />}
+                {r.non > 0 && <div className="h-full rounded-r-full bg-chart-non" style={{ width: `${(r.non / max) * 100}%`, borderRadius: r.billable ? undefined : 9999 }} />}
+              </div>
             </div>
           </li>
         );

@@ -6,6 +6,7 @@ import { PRIORITIES, statusChoices, assigneesOf, hasAssignee, dueLimits, dueProb
 import { canChangeStatus, canEditAssignees, canEditDetails } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Avatar, PRIORITY_STYLE, PillSelect, STATUS_STYLE, cx } from "../ui";
+import { DonePop } from "../motion";
 
 export const DUE_TONE = { danger: "text-red-600", warning: "text-amber-600", default: "text-stone-500", muted: "text-stone-400" };
 
@@ -53,14 +54,16 @@ export default function WorkProperties({ item }) {
   return (
     <dl className="grid grid-cols-2 gap-2 rounded-3xl bg-stone-50 p-2 @2xl:grid-cols-4">
       <Prop icon={CircleDot} label="Status">
-        <PillSelect
-          label="Status"
-          value={item.status}
-          options={statusChoices(item.status)}
-          styleFor={(s) => STATUS_STYLE[s]?.pill}
-          onChange={(status) => update({ status })}
-          readOnly={!canChangeStatus(me, item)}
-        />
+        <DonePop item={item}>
+          <PillSelect
+            label="Status"
+            value={item.status}
+            options={statusChoices(item.status)}
+            styleFor={(s) => STATUS_STYLE[s]?.pill}
+            onChange={(status) => update({ status })}
+            readOnly={!canChangeStatus(me, item)}
+          />
+        </DonePop>
       </Prop>
       <Prop icon={Flag} label="Priority">
         {locked ? (

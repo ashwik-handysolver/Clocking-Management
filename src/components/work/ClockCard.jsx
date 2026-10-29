@@ -39,7 +39,12 @@ export function ClockButton({ subtask }) {
         onThis ? "bg-brand-500 text-white shadow-glow" : "bg-brand-50 text-brand-600 hover:scale-105 hover:bg-brand-500 hover:text-white",
       )}
     >
-      {onThis ? <Square className="size-3" fill="currentColor" /> : <Play className="ml-0.5 size-3.5" fill="currentColor" />}
+      {/* Keyed so the icon spins in whenever it switches between play and stop */}
+      {onThis ? (
+        <Square key="stop" className="size-3 animate-icon-swap" fill="currentColor" />
+      ) : (
+        <Play key="play" className="ml-0.5 size-3.5 animate-icon-swap" fill="currentColor" />
+      )}
     </button>
   );
 }

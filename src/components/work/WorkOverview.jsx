@@ -5,8 +5,7 @@ import { formatHours, todayKey } from "../../lib/time";
 import { assigneesOf, descendants, isOverdue, liveItemIds, progressOf, rollupSeconds } from "../../store/model";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
-import { useDialogs } from "../dialogs";
-import { AvatarStack, Button, Card, EmptyState, IconChip, ProgressRing, Watermark, ADD_HINT } from "../ui";
+import { AvatarStack, Card, EmptyState, IconChip, ProgressRing, Watermark, ADD_HINT } from "../ui";
 
 /** Shown on the right when nothing is selected: one card per client. */
 export default function WorkOverview() {

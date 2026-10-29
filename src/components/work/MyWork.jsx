@@ -6,6 +6,7 @@ import { dueInfo, formatHours, startOfDay } from "../../lib/time";
 import { assigneesOf, statusChoices, entrySeconds, isDone, pathLabel, rollupSeconds, runningEntryOf } from "../../store/model";
 import { useStore } from "../../store/store";
 import { AvatarStack, Card, EmptyState, IconChip, PillSelect, PriorityLabel, STATUS_STYLE, cx } from "../ui";
+import { DoneName } from "../motion";
 import { ClockButton } from "./ClockCard";
 import { DUE_TONE } from "./WorkProperties";
 
@@ -165,7 +166,9 @@ function Row({ sub, byMe, secs, onStatus }) {
         <ClockButton subtask={sub} />
       )}
       <div className="min-w-0 flex-1">
-        <p className={cx("truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(sub) && "!text-stone-400 line-through")}>{sub.name}</p>
+        <p className={cx("truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(sub) && "!text-stone-400")}>
+          <DoneName item={sub}>{sub.name}</DoneName>
+        </p>
         <p className="truncate text-xs text-stone-400">
           {byMe && <span className="font-semibold text-stone-500">{people.map((m) => m.name.split(" ")[0]).join(", ")} · </span>}
           {pathLabel(index, sub.id).replaceAll(" / ", " › ")}

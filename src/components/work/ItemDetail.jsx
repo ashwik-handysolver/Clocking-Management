@@ -12,6 +12,7 @@ import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import { TYPE_ICON } from "../ItemForm";
 import { AvatarStack, Button, Card, IconChip, ProgressRing, TONE, Watermark, cx } from "../ui";
+import { DoneName } from "../motion";
 import ChildrenList from "./ChildrenList";
 import ClientWork from "./ClientWork";
 import ClockCard from "./ClockCard";
@@ -185,8 +186,8 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
 
           <div className="flex flex-col items-start gap-4 @xl:flex-row @xl:items-end @xl:justify-between">
             <div className="min-w-0">
-              <h1 className={cx("text-[28px] leading-tight font-extrabold tracking-tight break-words text-stone-900", isDone(item) && "text-stone-400 line-through decoration-2")}>
-                {item.name}
+              <h1 className={cx("text-[28px] leading-tight font-extrabold tracking-tight break-words text-stone-900", isDone(item) && "!text-stone-400")}>
+                <DoneName item={item}>{item.name}</DoneName>
               </h1>
               {item.description && <p className="mt-2 max-w-2xl text-sm leading-relaxed whitespace-pre-wrap text-stone-500">{item.description}</p>}
             </div>

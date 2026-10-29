@@ -37,14 +37,15 @@ export default function AddMenu({ contextId }) {
             aria-label="Add"
             aria-expanded={open}
             title="Add"
-            className={cx("transition-transform", open && "[&_svg]:rotate-45")}
+            // The + turns into an × while the menu is open.
+            className={cx("[&_svg]:transition-transform [&_svg]:duration-300 [&_svg]:ease-smooth", open && "[&_svg]:rotate-[135deg]")}
           />
         )}
       >
         {(close) => (
           <div>
             <p className="px-2.5 pt-1.5 pb-1 text-[11px] font-bold tracking-widest text-stone-400 uppercase">Add</p>
-            <ul>
+            <ul className="stagger">
               {kinds.map((k) => {
                 const Icon = TYPE_ICON[k];
                 return (

@@ -434,12 +434,31 @@ const STATUS_TEXT = {
   error: ["Couldn't load your workspace", ""],
 };
 
+/** While the workspace loads: a pale outline of the app (sidebar, header, cards) instead of a spinner. */
+function LoadingSkeleton() {
+  const block = "rounded-3xl bg-surface/80 ring-1 ring-stone-900/5";
+  return (
+    <div className="min-h-dvh animate-skeleton bg-canvas p-3" role="status" aria-label="Loading your workspace">
+      <div className="fixed inset-y-3 left-3 hidden w-[84px] rounded-[28px] bg-stone-200/70 lg:block" />
+      <div className="space-y-4 lg:pl-[108px]">
+        <div className={`${block} h-[68px]`} />
+        <div className="h-36 rounded-3xl bg-stone-300/50" />
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className={`${block} h-64`} />
+          <div className={`${block} h-64`} />
+        </div>
+        <div className={`${block} h-48`} />
+      </div>
+    </div>
+  );
+}
+
 function StoreStatus({ status, problem, onRetry }) {
   const [title, text] = STATUS_TEXT[status] ?? STATUS_TEXT.loading;
+  if (status === "loading") return <LoadingSkeleton />;
   return (
     <div className="grid min-h-dvh place-items-center bg-canvas p-6 text-center">
       <div className="max-w-sm">
-        {status === "loading" && <span className="mx-auto mb-4 block size-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />}
         <h1 className="text-lg font-extrabold text-stone-900">{title}</h1>
         {(text || problem) && <p className="mt-1.5 text-sm text-stone-500">{status === "error" ? problem : text}</p>}
         {(status === "error" || status === "noMember") && (

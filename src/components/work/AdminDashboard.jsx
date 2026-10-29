@@ -12,6 +12,7 @@ import ClientCyclesCard from "./ClientCyclesCard";
 import WorkloadCard from "./WorkloadCard";
 import { Hero, HeroStat, StatTile } from "./DashboardParts";
 import { Avatar, Button, Card, IconChip, cx } from "../ui";
+import { useReveal } from "../motion";
 
 /*
  * Admin dashboard: the whole team at a glance.
@@ -188,6 +189,7 @@ function TeamActivity({ now }) {
 
 export default function AdminDashboard() {
   const { state, teamEntries, allIndex: index, me } = useStore();
+  const revealRef = useReveal(); // cards appear as you scroll to them
   // Team members, plus the admin once they take on work themself.
   const { openEntryForm } = useDialogs();
   const team = workingMembers(state.members, state.items, teamEntries);
@@ -203,7 +205,7 @@ export default function AdminDashboard() {
   const live = new Set(teamEntries.filter((e) => e.end == null).map((e) => e.memberId)).size;
 
   return (
-    <div className="@container space-y-4">
+    <div ref={revealRef} className="@container reveal space-y-4">
       <Hero name={me.name.split(" ")[0]} title="Here's how the team is doing today">
         <HeroStat label="Billable share" value={total ? `${Math.round((billable / total) * 100)}%` : "—"} />
         <Button variant="primary" icon={Plus} onClick={() => openEntryForm({})}>

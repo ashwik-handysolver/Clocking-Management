@@ -185,6 +185,7 @@ export default function Sidebar({ pinnedOpen, onTogglePinned, mobileOpen, onClos
       />
       <aside
         ref={asideRef}
+        data-lenis-prevent // the page's smooth scrolling leaves the sidebar alone
         onMouseEnter={() => setHover(true, 60)}
         onMouseLeave={() => setHover(false, 160)}
         className={cx(

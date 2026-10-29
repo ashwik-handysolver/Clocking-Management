@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
@@ -50,9 +51,38 @@ export function Pager({ page, total, perPage, onPage }) {
 }
 
 /** Small pill tabs. `options` is a list of [value, label]. */
-export function Segmented({ value, options, onChange, label }) {
+/** Pill-shaped switch between a few options; the white highlight glides to the one you pick. */
+export function Segmented({ value, options, onChange, label, size = "md" }) {
+  const wrap = useRef(null);
+  const [pill, setPill] = useState(null); // { left, width } of the chosen option
+  const [glide, setGlide] = useState(false); // no gliding on the first placement
+  const labels = options.map((o) => o[1]).join("|");
+
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = wrap.current?.querySelector('[aria-pressed="true"]');
+      setPill(el ? { left: el.offsetLeft, width: el.offsetWidth } : null);
+    };
+    place();
+    const t = setTimeout(() => setGlide(true), 20);
+    // Re-measure when the switch changes size (fonts loading, labels changing, window resizing).
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(place) : null;
+    ro?.observe(wrap.current);
+    return () => {
+      clearTimeout(t);
+      ro?.disconnect();
+    };
+  }, [value, labels]);
+
   return (
-    <div role="group" aria-label={label} className="inline-flex rounded-full bg-stone-100 p-1">
+    <div ref={wrap} role="group" aria-label={label} className={cx("relative inline-flex rounded-full bg-stone-100", size === "sm" ? "p-0.5" : "p-1")}>
+      {pill && (
+        <span
+          aria-hidden="true"
+          className={cx("absolute rounded-full bg-surface shadow-sm", size === "sm" ? "inset-y-0.5" : "inset-y-1", glide && "transition-[left,width] duration-300 ease-smooth")}
+          style={pill}
+        />
+      )}
       {options.map(([key, text]) => (
         <button
           key={key}
@@ -60,8 +90,10 @@ export function Segmented({ value, options, onChange, label }) {
           aria-pressed={value === key}
           onClick={() => onChange(key)}
           className={cx(
-            "rounded-full px-3.5 py-1.5 text-xs font-bold transition",
-            value === key ? "bg-surface text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-800",
+            "relative rounded-full text-xs font-bold transition-colors",
+            size === "sm" ? "px-3 py-1" : "px-3.5 py-1.5",
+            value === key ? "text-stone-900" : "text-stone-500 hover:text-stone-800",
+            !pill && value === key && "bg-surface shadow-sm", // before the highlight is measured
           )}
         >
           {text}

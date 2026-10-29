@@ -11,6 +11,8 @@ import ClientCyclesCard from "./ClientCyclesCard";
 import { loadClientHoursEntries } from "../../store/db";
 import { Hero, HeroStat } from "./DashboardParts";
 import { Button, Card, EmptyState, IconChip, StatusIcon, cx } from "../ui";
+import { Segmented as SharedSegmented } from "../admin/AdminPage";
+import { DoneName, useReveal } from "../motion";
 
 /*
  * Personal dashboard: only the signed-in user's own time (store/permissions.js).
@@ -31,26 +33,8 @@ function secondsBetween(entries, from, to, now) {
   return total;
 }
 
-function Segmented({ value, options, onChange, label }) {
-  return (
-    <div role="group" aria-label={label} className="flex rounded-full bg-stone-100 p-0.5">
-      {options.map(([key, text]) => (
-        <button
-          key={key}
-          type="button"
-          aria-pressed={value === key}
-          onClick={() => onChange(key)}
-          className={cx(
-            "rounded-full px-3 py-1 text-xs font-bold transition",
-            value === key ? "bg-surface text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-800",
-          )}
-        >
-          {text}
-        </button>
-      ))}
-    </div>
-  );
-}
+/** The shared switch with the gliding highlight, in its smaller size. */
+const Segmented = (props) => <SharedSegmented size="sm" {...props} />;
 
 function SectionTitle({ icon, title, children }) {
   return (
@@ -103,11 +87,11 @@ function WeekChart({ entries, now }) {
               )}
               <div
                 className={cx(
-                  "w-full max-w-10 rounded-t-[4px] transition-all",
+                  "w-full max-w-10 origin-bottom animate-grow-y rounded-t-[4px] transition-all",
                   i === todayIdx ? "bg-brand-500" : hover === i ? "bg-brand-400" : "bg-brand-300",
                   secs === 0 && "!bg-stone-200",
                 )}
-                style={{ height: secs ? `${Math.max(4, (secs / max) * 100)}%` : "2px" }}
+                style={{ height: secs ? `${Math.max(4, (secs / max) * 100)}%` : "2px", animationDelay: `${i * 50}ms` }}
               />
             </div>
           ))}
@@ -174,7 +158,7 @@ function TimeByClient({ entries, now }) {
                 </span>
               </button>
               <div className="h-2.5 rounded-full bg-stone-100" title={`${c.item.name}: ${formatHours(c.secs)}`}>
-                <div className="h-full rounded-full bg-brand-500" style={{ width: `${(c.secs / max) * 100}%` }} />
+                <div className="h-full origin-left animate-grow-x rounded-full bg-brand-500" style={{ width: `${(c.secs / max) * 100}%` }} />
               </div>
               {c.projects.length > 1 && (
                 <ul className="mt-2 space-y-1.5 pl-3">
@@ -184,7 +168,7 @@ function TimeByClient({ entries, now }) {
                         {p.item.name}
                       </button>
                       <div className="h-1.5 flex-1 rounded-full bg-stone-100" title={`${p.item.name}: ${formatHours(p.secs)}`}>
-                        <div className="h-full rounded-full bg-brand-300" style={{ width: `${(p.secs / max) * 100}%` }} />
+                        <div className="h-full origin-left animate-grow-x rounded-full bg-brand-300" style={{ width: `${(p.secs / max) * 100}%` }} />
                       </div>
                       <span className="w-14 shrink-0 text-right font-semibold text-stone-600 tabular-nums">{formatHours(p.secs)}</span>
                     </li>
@@ -219,7 +203,7 @@ function RecentSubtasks() {
       {!recent.length ? (
         <p className="py-8 text-center text-sm text-stone-400">No subtasks assigned to you yet.</p>
       ) : (
-        <ul className="-mx-2 flex-1 space-y-0.5">
+        <ul className="stagger -mx-2 flex-1 space-y-0.5">
           {recent.map((s) => {
             const by = memberById.get(creatorOf(s));
             return (
@@ -227,7 +211,9 @@ function RecentSubtasks() {
                 <button type="button" onClick={() => openItem(s.id)} className="group flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-brand-50/70">
                   <StatusIcon status={s.status} className="size-[18px] shrink-0" />
                   <span className="min-w-0 flex-1">
-                    <span className={cx("block truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(s) && "!text-stone-400 line-through")}>{s.name}</span>
+                    <span className={cx("block truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(s) && "!text-stone-400")}>
+                      <DoneName item={s}>{s.name}</DoneName>
+                    </span>
                     <span className="block truncate text-xs text-stone-400">{pathLabel(index, s.id).replaceAll(" / ", " › ")}</span>
                   </span>
                   <span className="shrink-0 text-right text-[11px] leading-tight text-stone-400">
@@ -354,6 +340,7 @@ function PersonalDashboard() {
   const { entries, me } = useStore(); // your own time only
   const running = entries.some((e) => e.end == null);
   const now = useNow(running, 30_000);
+  const revealRef = useReveal(); // cards appear as you scroll to them
   const clientEntries = useClientHoursEntries(entries);
 
   const weekStart = startOfWeek(now);
@@ -364,7 +351,7 @@ function PersonalDashboard() {
   const delta = thisWeek - lastWeekSoFar;
 
   return (
-    <div className="@container space-y-4">
+    <div ref={revealRef} className="@container reveal space-y-4">
       <Hero name={me.name.split(" ")[0]} title="Here's your week so far">
         <HeroStat label="Today" value={formatHours(today)} live={running} />
         <HeroStat

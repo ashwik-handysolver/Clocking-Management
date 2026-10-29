@@ -38,7 +38,7 @@ function Toasts({ toasts, dismiss }) {
       {toasts.map((t) =>
         t.tone === "notify" ? (
           // Notification toast: title, detail, an action and a close button.
-          <div key={t.id} className="pointer-events-auto flex w-full max-w-sm animate-pop items-start gap-3 palette-fixed rounded-2xl bg-stone-900 p-3.5 text-white shadow-float ring-1 ring-white/10">
+          <div key={t.id} className="pointer-events-auto flex w-full max-w-sm animate-toast-in items-start gap-3 palette-fixed rounded-2xl bg-stone-900 p-3.5 text-white shadow-float ring-1 ring-white/10">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-500">
               <Bell className="size-4" />
             </span>
@@ -63,7 +63,7 @@ function Toasts({ toasts, dismiss }) {
             </button>
           </div>
         ) : (
-          <div key={t.id} className="flex animate-pop items-center gap-2.5 palette-fixed rounded-2xl bg-stone-900 px-4 py-3 text-sm font-medium text-white shadow-float">
+          <div key={t.id} className="flex animate-toast-in items-center gap-2.5 palette-fixed rounded-2xl bg-stone-900 px-4 py-3 text-sm font-medium text-white shadow-float">
             {t.tone === "error" ? <CircleAlert className="size-4 shrink-0 text-red-400" /> : <CircleCheck className="size-4 shrink-0 text-brand-400" />}
             {t.text}
           </div>
