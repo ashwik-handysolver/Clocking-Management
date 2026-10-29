@@ -195,9 +195,6 @@ function reducer(state, action) {
       return withAudit(logged, action, stopped, "stopped", `Stopped the timer · ${describeEntry(stopped)}`);
     }
 
-    case "addComment":
-      return withLog(state, action, action.itemId, "comment", action.text);
-
     case "addMember":
       return { ...state, members: [...state.members, action.member] };
 
@@ -378,7 +375,6 @@ export function StoreProvider({ children }) {
       archiveItem: (id, archived = true) => send({ type: "archiveItem", id, archived }),
       updateEntry: (id, changes) => send({ type: "updateEntry", id, changes }),
       deleteEntry: (id) => send({ type: "deleteEntry", id }),
-      addComment: (itemId, text) => send({ type: "addComment", itemId, text }),
       addMember(fields) {
         const member = { ...fields, id: uid("m") };
         send({ type: "addMember", member });

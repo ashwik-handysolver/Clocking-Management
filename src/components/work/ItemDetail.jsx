@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import {
-  Archive, ArrowLeft, CalendarCheck, Camera, CircleCheck, ListChecks, Mail, Pencil, Plus, Timer, Trash, TriangleAlert, UserRound,
+  Archive, ArrowLeft, CalendarCheck, Camera, CircleCheck, ListChecks, Mail, Pencil, Timer, Trash, TriangleAlert, UserRound,
 } from "lucide-react";
 import { navigate, openItem } from "../../lib/router";
 import { formatHours, todayKey } from "../../lib/time";
 import {
-  CHILD_TYPE, TYPE_LABEL, ancestry, assigneesOf, descendants, isDone, isOverdue, isWork, progressOf, rollupSeconds,
+  TYPE_LABEL, ancestry, assigneesOf, descendants, isDone, isOverdue, isWork, progressOf, rollupSeconds,
 } from "../../store/model";
-import { canArchive, canCreate, canDeleteItem, canEditDetails, isAdmin } from "../../store/permissions";
+import { canArchive, canCreate, canDeleteItem, canEditDetails } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import { TYPE_ICON } from "../ItemForm";
@@ -108,8 +108,6 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
     return teamEntries.some((e) => ids.has(e.subtaskId));
   }, [index, item.id, teamEntries]);
   const isClient = item.type === "client";
-  // A client page adds tasks (into the open project tab); projects are added from the tabs.
-  const addType = isClient ? "task" : CHILD_TYPE[item.type];
 
   // Your own time only (store/permissions.js).
   const seconds = useMemo(() => rollupSeconds(index, entries), [index, entries]);
@@ -190,14 +188,9 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
               <h1 className={cx("text-[28px] leading-tight font-extrabold tracking-tight break-words text-stone-900", isDone(item) && "text-stone-400 line-through decoration-2")}>
                 {item.name}
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed whitespace-pre-wrap text-stone-500">{item.description || "No description yet."}</p>
+              {item.description && <p className="mt-2 max-w-2xl text-sm leading-relaxed whitespace-pre-wrap text-stone-500">{item.description}</p>}
             </div>
-            {/* Subtasks are added from the header or the last row of the list, so no button here. */}
-            {addType && addType !== "subtask" && (
-              <Button variant="primary" icon={Plus} onClick={() => openItemForm({ type: addType, contextId: projectId ?? item.id, lockType: true, ...(isClient && { billing }) })}>
-                Add {TYPE_LABEL[addType].toLowerCase()}
-              </Button>
-            )}
+            {/* Everything is added from the header's + button. */}
           </div>
         </div>
 

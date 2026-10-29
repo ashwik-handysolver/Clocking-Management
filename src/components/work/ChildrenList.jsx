@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ExternalLink, Folder, Pencil, Plus, Trash } from "lucide-react";
+import { ChevronDown, ExternalLink, Folder, Pencil, Trash } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { dueInfo, formatHours } from "../../lib/time";
 import { BILLING_LABEL, CHILD_TYPE, billingOf, statusChoices, TYPE_LABEL, assigneesOf, hasAssignee, isDone, isWork, progressOf } from "../../store/model";
@@ -8,7 +8,7 @@ import { useStore } from "../../store/store";
 import { Segmented } from "../admin/AdminPage";
 import { useDialogs } from "../dialogs";
 import { TYPE_ICON } from "../ItemForm";
-import { Avatar, AvatarStack, Button, EmptyState, PillSelect, PriorityLabel, ProgressRing, STATUS_STYLE, StatusIcon, cx } from "../ui";
+import { Avatar, AvatarStack, Button, EmptyState, PillSelect, PriorityLabel, ProgressRing, STATUS_STYLE, StatusIcon, ADD_HINT, cx } from "../ui";
 import ClockCard, { ClockButton } from "./ClockCard";
 import WorkProperties from "./WorkProperties";
 import { useDeleteItem } from "./useDeleteItem";
@@ -18,7 +18,6 @@ const DUE_TONE = { danger: "text-red-600 font-bold", warning: "text-amber-600 fo
 export default function ChildrenList({ item, billing, seconds }) {
   const [openId, setOpenId] = useState(null); // subtask expanded in place
   const { index, actions, memberById, me } = useStore();
-  const { openItemForm } = useDialogs();
   const childType = CHILD_TYPE[item.type];
   // A task's subtasks are split into two tabs: ones you assigned and ones assigned to you.
   const [who, setWho] = useState("to");
@@ -49,7 +48,7 @@ export default function ChildrenList({ item, billing, seconds }) {
     />
   );
   const label = (byBilling ? `${BILLING_LABEL[billing].toLowerCase()} ` : "") + TYPE_LABEL[childType].toLowerCase();
-  const add = () => openItemForm({ type: childType, contextId: item.id, lockType: true, ...(byBilling && { billing }) });
+  // Everything is added from the header's + button, so lists have no Add buttons of their own.
 
   if (!children.length) {
     return (
@@ -68,13 +67,7 @@ export default function ChildrenList({ item, billing, seconds }) {
                   : "No open subtasks assigned to you"
             : `No ${label}s yet`
         }
-        action={
-          who === "done" && subtasks ? undefined : (
-            <Button variant="primary" size="sm" icon={Plus} onClick={add}>
-              Add {label}
-            </Button>
-          )
-        }
+        text={who === "done" && subtasks ? undefined : ADD_HINT}
       />
       </div>
     );
@@ -149,7 +142,6 @@ export default function ChildrenList({ item, billing, seconds }) {
                   <PillSelect
                     label="Status"
                     readOnly={!canChangeStatus(me, c)}
-                    readOnlyTitle={`Only whoever created this ${c.type} can change it`}
                     value={c.status}
                     options={statusChoices(c.status)}
                     styleFor={(s) => STATUS_STYLE[s]?.pill}
@@ -167,15 +159,6 @@ export default function ChildrenList({ item, billing, seconds }) {
           </div>
         );
       })}
-      {!(subtasks && who === "done") && (
-      <button
-        type="button"
-        onClick={add}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-stone-200 py-3 text-sm font-bold text-stone-400 transition hover:border-brand-300 hover:bg-brand-50/50 hover:text-brand-600"
-      >
-        <Plus className="size-4" /> Add {label}
-      </button>
-      )}
     </div>
   );
 }

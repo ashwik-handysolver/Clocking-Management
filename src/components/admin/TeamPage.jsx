@@ -98,7 +98,6 @@ export default function TeamPage() {
           <p className="text-sm font-bold text-stone-700">
             {active.length} {active.length === 1 ? "person" : "people"}
           </p>
-          <p className="text-xs text-stone-400">New people join by signing up</p>
         </div>
 
         {!active.length ? (
@@ -246,7 +245,7 @@ function EditMember({ member, onClose }) {
         <Field label="Full name" required error={error}>
           <input data-autofocus value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
         </Field>
-        <Field label="Role" hint="e.g. Frontend Developer">
+        <Field label="Role">
           <input value={role} onChange={(e) => setRole(e.target.value)} className={inputClass} />
         </Field>
         <div>
@@ -291,7 +290,6 @@ function EditMember({ member, onClose }) {
             ))}
           </div>
         </div>
-        <p className="text-xs text-stone-400">The email is the sign-in address and can't be changed here.</p>
       </div>
     </Modal>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Loader2, Mail, Phone, Trash, UserRound } from "lucide-react";
+import { Camera, Loader2, Mail, Trash, UserRound } from "lucide-react";
 import { removeAvatars, uploadAvatar } from "../store/db";
 import { useStore } from "../store/store";
 import { COLORS } from "./admin/TeamPage";
@@ -7,7 +7,7 @@ import { useDialogs } from "./dialogs";
 import { Avatar, Button, Card, Field, IconChip, cx, inputClass } from "./ui";
 
 /*
- * Your account: profile picture, name, job title, phone and avatar colour.
+ * Your account: profile picture, name, job title and avatar colour.
  * Email is your sign-in address, so it's shown but not edited here.
  */
 
@@ -121,7 +121,6 @@ function PictureCard() {
             </Button>
           )}
         </div>
-        <p className="mt-2 text-xs text-stone-400">JPG, PNG or WebP. Cropped to a square.</p>
       </div>
     </Card>
   );
@@ -130,7 +129,7 @@ function PictureCard() {
 function DetailsCard() {
   const { me, actions } = useStore();
   const { toast } = useDialogs();
-  const initial = { name: me.name, role: me.role ?? "", phone: me.phone ?? "", color: me.color };
+  const initial = { name: me.name, role: me.role ?? "", color: me.color };
   const [values, setValues] = useState(initial);
   const [error, setError] = useState({});
   // Pick up changes made elsewhere (e.g. the admin renamed you) while nothing is being edited.
@@ -150,10 +149,9 @@ function DetailsCard() {
     e.preventDefault();
     const errs = {};
     if (!values.name.trim()) errs.name = "Your name is required";
-    if (values.phone.trim() && !/^[+\d][\d\s()-]{5,}$/.test(values.phone.trim())) errs.phone = "Enter a valid phone number";
     setError(errs);
     if (Object.keys(errs).length) return;
-    const next = { name: values.name.trim(), role: values.role.trim(), phone: values.phone.trim(), color: values.color };
+    const next = { name: values.name.trim(), role: values.role.trim(), color: values.color };
     actions.updateMember(me.id, next);
     setValues(next);
     toast("Profile saved");
@@ -167,16 +165,10 @@ function DetailsCard() {
           <Field label="Full name" required error={error.name}>
             <input value={values.name} onChange={set("name")} autoComplete="name" className={inputClass} />
           </Field>
-          <Field label="Job title" hint={me.isAdmin ? "Shown as Admin in the app" : "e.g. Frontend developer"}>
+          <Field label="Job title">
             <input value={values.role} onChange={set("role")} placeholder="Team member" className={inputClass} />
           </Field>
-          <Field label="Phone" error={error.phone} hint="Optional">
-            <span className="relative block">
-              <Phone className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-stone-400" />
-              <input type="tel" value={values.phone} onChange={set("phone")} autoComplete="tel" placeholder="+91 98765 43210" className={cx(inputClass, "pl-10")} />
-            </span>
-          </Field>
-          <Field label="Email" hint="Your sign-in address. Ask the admin to change it.">
+          <Field label="Email" className="sm:col-span-2">
             <span className="relative block">
               <Mail className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-stone-400" />
               <input value={me.email} disabled className={cx(inputClass, "pl-10")} />
@@ -197,7 +189,6 @@ function DetailsCard() {
                   className={cx("size-8 rounded-full transition", values.color === c ? "ring-2 ring-stone-900 ring-offset-2 ring-offset-surface" : "hover:scale-110")}
                 />
               ))}
-              <span className="ml-1 text-xs text-stone-400">{me.avatarUrl ? "Used when you have no picture" : "Behind your initials"}</span>
             </div>
           </div>
         </div>

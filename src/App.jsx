@@ -18,7 +18,6 @@ import WorkOverview from "./components/work/WorkOverview";
 import WorkTree, { WorkTreeRail } from "./components/work/WorkTree";
 import MyWork from "./components/work/MyWork";
 import { ADMIN_PAGES, navigate, useRoute } from "./lib/router";
-import { CHILD_TYPE } from "./store/model";
 import { StoreProvider, useStore } from "./store/store";
 
 const COLLAPSE_KEY = "handysolver-sidebar-collapsed";
@@ -99,7 +98,6 @@ function Shell() {
     setMenuOpen(false);
   }, [routeItem, page]);
 
-  const newType = routeItem ? CHILD_TYPE[routeItem.type] ?? "subtask" : "client";
 
   return (
     <div className="min-h-screen">
@@ -115,7 +113,7 @@ function Shell() {
 
       {/* Left padding follows the sidebar via CSS (see .app-content), so hovering never re-renders the page. */}
       <div className="app-content pt-3 pr-3 pb-6 lg:pr-4">
-        <Topbar newType={newType} selectedId={routeItem?.id} page={page} onOpenMenu={() => setMenuOpen(true)} />
+        <Topbar selectedId={routeItem?.id} page={page} onOpenMenu={() => setMenuOpen(true)} />
         <OfflineBanner />
 
         {ADMIN_PAGES.includes(page) ? (

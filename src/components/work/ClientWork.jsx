@@ -1,26 +1,24 @@
-import { Archive, BadgeDollarSign, Calendar, CircleDot, CircleSlash, Folder, Pencil, Plus } from "lucide-react";
+import { Archive, BadgeDollarSign, CircleSlash, Folder, Pencil } from "lucide-react";
 import { navigate, openItem } from "../../lib/router";
-import { formatDate } from "../../lib/time";
-import { BILLING, BILLING_LABEL, PROJECT_STATUSES, billingOf, descendants, progressOf } from "../../store/model";
+import { BILLING, BILLING_LABEL, billingOf, progressOf } from "../../store/model";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
-import { Button, Card, EmptyState, PillSelect, ProgressRing, STATUS_STYLE, cx } from "../ui";
+import { Button, Card, EmptyState, ProgressRing, ADD_HINT, cx } from "../ui";
 import ChildrenList from "./ChildrenList";
 
 /*
  * A client's work on one page: projects are tabs, not another level to click into.
  * "All" lists every project's tasks under a small heading; a project tab shows that project's
- * status, target date and tasks. Project links (#/work/<projectId>) open this page on that tab.
+ * progress and tasks. Project links (#/work/<projectId>) open this page on that tab.
  */
 export default function ClientWork({ client, projectId, billing = "billable", seconds }) {
   const { index, actions } = useStore();
-  const { openItemForm, confirm, toast } = useDialogs();
+  const { confirm, toast } = useDialogs();
   const { me } = useStore();
   const admin = isAdmin(me); // only the admin adds projects
   const projects = index.childrenOf(client.id);
   const project = projectId ? index.get(projectId) : null;
-  const addProject = () => openItemForm({ type: "project", contextId: client.id, lockType: true });
   // The switch picks which tasks show (?billing= in the URL); new tasks go into that category.
   const tasksIn = (p) => index.childrenOf(p.id).filter((t) => billingOf(index, t.id) === billing);
   const go = (id, b) => navigate("work", id, b === "billable" ? null : { billing: b });
@@ -65,27 +63,10 @@ export default function ClientWork({ client, projectId, billing = "billable", se
       <div role="tablist" aria-label="Projects" className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin">
         {projects.length > 1 && tab(null, "All projects", projects.length)}
         {projects.map((p) => tab(p.id, p.name, tasksIn(p).length))}
-        {admin && <button
-          type="button"
-          onClick={addProject}
-          className="flex h-9 shrink-0 items-center gap-1.5 rounded-full border-2 border-dashed border-stone-200 px-3 text-sm font-bold text-stone-400 transition hover:border-brand-300 hover:text-brand-600"
-        >
-          <Plus className="size-4" /> Project
-        </button>}
       </div>
 
       {!projects.length ? (
-        <EmptyState
-          icon={Folder}
-          title="No projects yet"
-          action={
-            admin && (
-              <Button variant="primary" size="sm" icon={Plus} onClick={addProject}>
-                Add project
-              </Button>
-            )
-          }
-        />
+        <EmptyState icon={Folder} title="No projects yet" text={admin ? ADD_HINT : undefined} />
       ) : project || projects.length === 1 ? (
         <ProjectSection project={project ?? projects[0]} billing={billing} onBilling={showBilling} seconds={seconds} admin={admin} onArchive={archiveProject} />
       ) : (
@@ -105,9 +86,9 @@ export default function ClientWork({ client, projectId, billing = "billable", se
   );
 }
 
-/** One project's status, target date and tasks. */
+/** One project's progress and tasks. */
 function ProjectSection({ project, billing, onBilling, seconds, admin, onArchive }) {
-  const { index, actions } = useStore();
+  const { index } = useStore();
   const { openItemForm } = useDialogs();
   const prog = progressOf(index, project.id);
 
@@ -115,20 +96,6 @@ function ProjectSection({ project, billing, onBilling, seconds, admin, onArchive
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-stone-50 px-3 py-2.5">
         <ProgressRing value={prog.pct} tone="green" size={36} stroke={4} />
-        <span className="flex items-center gap-1.5 text-xs text-stone-500">
-          <CircleDot className="size-3.5 text-brand-500" />
-          <PillSelect
-            label="Project status"
-            value={project.status ?? "Active"}
-            options={PROJECT_STATUSES}
-            styleFor={(s) => STATUS_STYLE[s]?.pill}
-            onChange={(status) => actions.updateItem(project.id, { status })}
-          />
-        </span>
-        <span className="flex items-center gap-1.5 text-xs font-semibold text-stone-500">
-          <Calendar className="size-3.5 text-brand-500" />
-          {project.due ? `Target ${formatDate(project.due, { day: "numeric", month: "short", year: "numeric" })}` : "No target date"}
-        </span>
         <span className="text-xs text-stone-400">
           {prog.done}/{prog.total} done
         </span>

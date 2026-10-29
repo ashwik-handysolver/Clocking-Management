@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
-import { Bell, BellRing, ChevronDown, ChevronRight, LogOut, Menu, Moon, Pencil, Plus, Search, Square, Sun, Timer } from "lucide-react";
+import { Bell, BellRing, ChevronDown, ChevronRight, LogOut, Menu, Moon, Pencil, Search, Square, Sun, Timer } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { useTheme } from "../../hooks/useTheme";
 import { navigate, openItem } from "../../lib/router";
 import { formatClock } from "../../lib/time";
 import { TYPE_LABEL, ancestry, entrySeconds, runningEntryOf } from "../../store/model";
-import { canCreate } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { useClock } from "../clock";
 import { useDialogs } from "../dialogs";
-import { Avatar, Button, Popover, cx } from "../ui";
+import { Avatar, Popover, cx } from "../ui";
 import CommandPalette from "./CommandPalette";
-import AddSubtaskWizard from "../AddSubtaskWizard";
+import AddMenu from "./AddMenu";
 import NotificationBell from "./NotificationBell";
 import { desktopNotificationsOn, desktopPermission, sendTestNotification, setDesktopNotifications } from "../Notifications";
 import { Logo } from "./Sidebar";
@@ -159,14 +158,11 @@ function Crumbs({ selectedId, page }) {
   );
 }
 
-export default function Topbar({ newType, selectedId, page, onOpenMenu }) {
+export default function Topbar({ selectedId, page, onOpenMenu }) {
   const { state, me } = useStore();
-  const { openItemForm, toast } = useDialogs();
+
   const [searchOpen, setSearchOpen] = useState(false);
-  const [wizardOpen, setWizardOpen] = useState(false);
   const clocking = Boolean(runningEntryOf(state.entries, me.id));
-  // Clients and projects are admin-only; on a client page others add a task instead.
-  const type = canCreate(me, newType) ? newType : selectedId ? "task" : null;
 
   useEffect(() => {
     const onKey = (e) => {
@@ -209,43 +205,15 @@ export default function Topbar({ newType, selectedId, page, onOpenMenu }) {
             <span className="hidden flex-1 text-left xl:block">Search work…</span>
             <kbd className="hidden rounded-md bg-surface px-1.5 py-0.5 text-[10px] font-bold text-stone-500 shadow-sm xl:block">Ctrl K</kbd>
           </button>
-          {/* <ThemeToggle /> */}
           <TimerPill />
-          {/* Team members: pick client → project → task, then fill in the subtask. */}
-          {!me.isAdmin && (
-            <Button variant="primary" icon={Plus} aria-label="Add subtask" onClick={() => setWizardOpen(true)} className="max-sm:aspect-square max-sm:px-0">
-              <span className="hidden sm:inline">Add subtask</span>
-            </Button>
-          )}
-          {type && (
-            <Button variant={me.isAdmin ? "primary" : "secondary"} icon={Plus} aria-label="New" onClick={() => openItemForm({ type, contextId: selectedId })} className={cx("max-sm:aspect-square max-sm:px-0")}>
-              <span className="hidden sm:inline">New</span>
-            </Button>
-          )}
+          {/* The app's one Add button: a menu of what you may add, aware of the page you're on. */}
+          <AddMenu contextId={selectedId} />
           <NotificationBell />
           <ProfileMenu />
         </div>
       </header>
       {searchOpen && <CommandPalette onClose={() => setSearchOpen(false)} />}
-      {/* Starts from the page you're on: on a task or subtask page, straight at the subtask form */}
-      {wizardOpen && <AddSubtaskWizard contextId={selectedId} onClose={() => setWizardOpen(false)} toast={toast} />}
     </>
-  );
-}
-
-function ThemeToggle() {
-  const { dark, toggle } = useTheme();
-  const label = dark ? "Switch to light mode" : "Switch to dark mode";
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      aria-label={label}
-      title={label}
-      className="grid size-10 shrink-0 place-items-center rounded-xl text-stone-500 transition hover:bg-stone-100 hover:text-stone-800"
-    >
-      {dark ? <Sun className="size-[18px]" /> : <Moon className="size-[18px]" />}
-    </button>
   );
 }
 

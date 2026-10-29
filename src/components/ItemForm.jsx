@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Building, Folder, ListChecks, CircleDot } from "lucide-react";
 import { openItem } from "../lib/router";
-import { BILLING, BILLING_LABEL, PARENT_TYPE, PRIORITIES, billingOf, PROJECT_STATUSES, statusChoices, TYPES, TYPE_LABEL, ancestry, clientCycle, dueLimits, dueProblem, pathLabel } from "../store/model";
+import { BILLING, BILLING_LABEL, PARENT_TYPE, PRIORITIES, billingOf, statusChoices, TYPES, TYPE_LABEL, ancestry, clientCycle, dueLimits, dueProblem, pathLabel } from "../store/model";
 import { shortDate, todayKey } from "../lib/time";
 import { DEFAULT_SNAPSHOT_MINUTES, MAX_SNAPSHOT_MINUTES, MIN_SNAPSHOT_MINUTES, snapshotMinutesFor } from "../config";
 import MemberPicker from "./MemberPicker";
@@ -30,7 +30,6 @@ function initialValues(item, type, me) {
     budgetHours: item?.budgetHours ?? "",
     cycleStart: item?.cycleStart || todayKey(), // defaults to the day the client is created
     cycleMonths: String(item?.cycleMonths ?? 1),
-    projectStatus: type === "project" ? item?.status ?? "Active" : "Active",
     snapshotMinutes: String(snapshotMinutesFor(type === "project" ? item : null)),
     assignees: item?.assignees ?? [], // subtasks: at least one other team member must be picked
     status: item?.status ?? "To do",
@@ -50,7 +49,7 @@ function initialValues(item, type, me) {
  * `parentId` presets the parent (and hides its picker). `embedded` renders just the form,
  * for use inside another dialog, with a Back button that calls `onBack`.
  */
-export default function ItemForm({ id, type: initialType = "client", contextId, parentId: presetParent, billing: billingProp, lockType, embedded, onBack, onClose, toast }) {
+export default function ItemForm({ id, type: initialType = "client", contextId, parentId: presetParent, billing: billingProp, lockType, embedded, onBack, backLabel = "Back", onClose, toast }) {
   const { state, items, index, actions, me } = useStore();
   const editing = id ? index.get(id) : null;
   const [type, setType] = useState(editing?.type ?? initialType);
@@ -137,7 +136,8 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
         cycleMonths: hasHours ? months : null,
       });
     if (type === "task" && !editing) fields.billing = values.billing;
-    if (type === "project") Object.assign(fields, { status: values.projectStatus, due: values.due, ...(setsInterval && { snapshotIntervalMinutes: shotMins }) });
+    // Projects have no status or target date in the app any more; new ones are simply "Active".
+    if (type === "project") Object.assign(fields, { ...(!editing && { status: "Active" }), ...(setsInterval && { snapshotIntervalMinutes: shotMins }) });
     if (work)
       Object.assign(fields, {
         // Subtasks only; "assigned by" / "created by" are set by the store to the signed-in user.
@@ -222,7 +222,7 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
             </Field>
             {isAdmin(me) && (
               <>
-                <Field label="Client hours" error={errors.budgetHours} hint="Hours per billing cycle">
+                <Field label="Client hours" error={errors.budgetHours}>
                   <span className="relative block">
                     <input type="number" min="0" step="0.5" inputMode="decimal" value={values.budgetHours} onChange={set("budgetHours")} placeholder="e.g. 120" className={cx(inputClass, "pr-14")} />
                     <span className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-xs font-semibold text-stone-400">hours</span>
@@ -257,12 +257,6 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
 
         {type === "project" && (
           <>
-            <Field label="Status">
-              <Select value={values.projectStatus} onChange={set("projectStatus")} options={PROJECT_STATUSES} />
-            </Field>
-            <Field label="Target date" error={errors.due} hint={dueHint ?? "Optional"}>
-              {dueInput}
-            </Field>
             <Field
               label="Screenshot interval"
               required={canSetSnapshotInterval(me)}
@@ -293,11 +287,7 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
 
         {work && (
           <>
-            <Field
-              label="Billing"
-              hint={isSubtask ? "Same as its task" : editing ? "Can't be changed after the task is created" : "Its subtasks stay in this category"}
-              className="sm:col-span-2"
-            >
+            <Field label="Billing" className="sm:col-span-2">
               <Select
                 value={(isSubtask && values.parentId && billingOf(index, values.parentId)) || values.billing}
                 onChange={set("billing")}
@@ -314,18 +304,14 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
                     <RequiredMark />
                   </span>
                   <MemberPicker value={values.assignees} onChange={set("assignees")} invalid={!!errors.assignees} readOnly={!!editing && !canEditAssignees(me, editing)} />
-                  {errors.assignees ? (
-                    <span className="mt-1.5 block text-xs font-medium text-red-600">{errors.assignees}</span>
-                  ) : (
-                    <span className="mt-1.5 block text-xs text-stone-400">One or more people</span>
-                  )}
+                  {errors.assignees && <span className="mt-1.5 block text-xs font-medium text-red-600">{errors.assignees}</span>}
                 </div>
-                <Field label="Assigned by" hint={editing ? "Becomes you if you reassign" : "Set automatically"}>
+                <Field label="Assigned by">
                   <input value={autoPersonLabel} disabled className={inputClass} />
                 </Field>
               </>
             ) : (
-              <Field label="Created by" hint="Set automatically" className="sm:col-span-2">
+              <Field label="Created by" className="sm:col-span-2">
                 <input value={autoPersonLabel} disabled className={inputClass} />
               </Field>
             )}
@@ -335,13 +321,13 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
             <Field label="Priority">
               <Select value={values.priority} onChange={set("priority")} options={PRIORITIES} />
             </Field>
-            <Field label="Due date" error={errors.due} hint={dueHint ? `Optional · ${dueHint}` : "Optional"}>
+            <Field label="Due date" error={errors.due} hint={dueHint}>
               {dueInput}
             </Field>
             <Field label="Estimate (hours)" error={errors.estimate}>
               <input type="number" min="0" step="0.25" value={values.estimate} onChange={set("estimate")} placeholder="e.g. 4" className={inputClass} />
             </Field>
-            <Field label="Tags" hint="Press Enter or comma to add" className="sm:col-span-2">
+            <Field label="Tags" className="sm:col-span-2">
               <TagInput value={values.tags} onChange={set("tags")} suggestions={tagSuggestions} />
             </Field>
           </>
@@ -369,7 +355,7 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
       <form onSubmit={submit} noValidate>
         {body}
         <div className="sticky bottom-0 -mx-6 mt-5 -mb-5 flex justify-between gap-2 border-t border-stone-100 bg-surface px-6 py-4">
-          <Button onClick={onBack}>Back</Button>
+          <Button onClick={onBack}>{backLabel}</Button>
           {submitButton}
         </div>
       </form>

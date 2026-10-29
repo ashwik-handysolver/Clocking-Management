@@ -249,6 +249,9 @@ export function ProgressRing({ value, size = 44, stroke = 5, tone = "brand", chi
   );
 }
 
+/** For empty lists: everything is added from the header's + button. */
+export const ADD_HINT = "Use the + button at the top to add one.";
+
 export function EmptyState({ icon: Icon, title, text, action, className }) {
   return (
     <div className={cx("flex flex-col items-center px-6 py-12 text-center", className)}>

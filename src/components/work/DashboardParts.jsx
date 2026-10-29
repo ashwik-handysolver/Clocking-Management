@@ -31,7 +31,7 @@ export function Hero({ name, title, children }) {
 }
 
 /** A glassy number inside the hero. */
-export function HeroStat({ label, value, live }) {
+export function HeroStat({ label, value, live, sub }) {
   return (
     <div className="rounded-2xl bg-white/10 px-4 py-2.5 ring-1 ring-white/15 backdrop-blur">
       <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-white/65 uppercase">
@@ -39,6 +39,7 @@ export function HeroStat({ label, value, live }) {
         {label}
       </p>
       <p className="text-xl font-extrabold tabular-nums">{value}</p>
+      {sub && <p className="text-[11px] font-semibold text-white/75">{sub}</p>}
     </div>
   );
 }

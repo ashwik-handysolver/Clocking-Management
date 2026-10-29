@@ -60,7 +60,6 @@ export default function WorkProperties({ item }) {
           styleFor={(s) => STATUS_STYLE[s]?.pill}
           onChange={(status) => update({ status })}
           readOnly={!canChangeStatus(me, item)}
-          readOnlyTitle={item.type === "subtask" ? "Only whoever created this subtask or the people on it can change its status" : "Only whoever created this task can change it"}
         />
       </Prop>
       <Prop icon={Flag} label="Priority">
@@ -110,12 +109,12 @@ export default function WorkProperties({ item }) {
             <MemberPicker variant="inline" value={assigneesOf(item)} onChange={(assignees) => update({ assignees })} readOnly={!canEditAssignees(me, item)} />
           </Prop>
           <Prop icon={UserRound} label="Assigned by" className="col-span-1 @2xl:col-span-2">
-            <PersonLabel value={item.assignedBy} title="Set automatically to whoever assigns the subtask" />
+            <PersonLabel value={item.assignedBy} />
           </Prop>
         </>
       ) : (
         <Prop icon={UserRound} label="Created by" className="col-span-2 @2xl:col-span-4">
-          <PersonLabel value={item.createdBy} title="Set automatically to whoever created the task" />
+          <PersonLabel value={item.createdBy} />
         </Prop>
       )}
       {item.tags?.length > 0 && (

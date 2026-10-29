@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowDownRight, ArrowRight, ArrowUpRight, Camera, Clock, ListChecks, PencilLine, Timer } from "lucide-react";
+import { ArrowRight, Camera, Clock, ListChecks, PencilLine, Timer } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { navigate, openItem } from "../../lib/router";
 import { DAY, addDays, formatDate, formatHours, formatTime, startOfDay, startOfWeek } from "../../lib/time";
@@ -9,7 +9,7 @@ import { useStore } from "../../store/store";
 import AdminDashboard from "./AdminDashboard";
 import ClientCyclesCard from "./ClientCyclesCard";
 import { loadClientHoursEntries } from "../../store/db";
-import { Hero, HeroStat, StatTile } from "./DashboardParts";
+import { Hero, HeroStat } from "./DashboardParts";
 import { Button, Card, EmptyState, IconChip, StatusIcon, cx } from "../ui";
 
 /*
@@ -361,36 +361,18 @@ function PersonalDashboard() {
   // Last week up to the same point in the week, so the comparison is fair mid-week.
   const lastWeekSoFar = secondsBetween(entries, addDays(weekStart, -7), now - 7 * DAY, now);
   const today = secondsBetween(entries, startOfDay(now), now + 1, now);
-  const sessions = entries.filter((e) => e.start >= weekStart).length;
   const delta = thisWeek - lastWeekSoFar;
 
   return (
     <div className="@container space-y-4">
       <Hero name={me.name.split(" ")[0]} title="Here's your week so far">
         <HeroStat label="Today" value={formatHours(today)} live={running} />
-        <HeroStat label="This week" value={formatHours(thisWeek)} />
-      </Hero>
-
-      <div className="grid gap-3 sm:grid-cols-3">
-        <StatTile
-          icon={Clock}
-          tone="brand"
+        <HeroStat
           label="This week"
           value={formatHours(thisWeek)}
-          sub={
-            lastWeekSoFar || thisWeek ? (
-              <span className={cx("inline-flex items-center gap-0.5 font-semibold", delta >= 0 ? "text-emerald-600" : "text-stone-500")}>
-                {delta >= 0 ? <ArrowUpRight className="size-3.5" /> : <ArrowDownRight className="size-3.5" />}
-                {formatHours(Math.abs(delta))} {delta >= 0 ? "more" : "less"} than last week so far
-              </span>
-            ) : (
-              "No time yet"
-            )
-          }
+          sub={lastWeekSoFar || thisWeek ? `${delta >= 0 ? "▲" : "▼"} ${formatHours(Math.abs(delta))} ${delta >= 0 ? "more" : "less"} than last week` : undefined}
         />
-        <StatTile icon={Timer} tone="emerald" label="Today" value={formatHours(today)} sub={running ? "Clocked in now" : "Not clocked in"} />
-        <StatTile icon={Camera} tone="sky" label="Sessions this week" value={sessions} sub="Timer and manual entries" />
-      </div>
+      </Hero>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
         <WeekChart entries={entries} now={now} />

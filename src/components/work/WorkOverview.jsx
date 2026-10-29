@@ -1,17 +1,16 @@
 import { useMemo } from "react";
-import { ArrowUpRight, Building, Clock, Folder, Plus, TriangleAlert, Users } from "lucide-react";
+import { ArrowUpRight, Building, Clock, Folder, TriangleAlert, Users } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { formatHours, todayKey } from "../../lib/time";
 import { assigneesOf, descendants, isOverdue, liveItemIds, progressOf, rollupSeconds } from "../../store/model";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
-import { AvatarStack, Button, Card, EmptyState, IconChip, ProgressRing, Watermark } from "../ui";
+import { AvatarStack, Button, Card, EmptyState, IconChip, ProgressRing, Watermark, ADD_HINT } from "../ui";
 
 /** Shown on the right when nothing is selected: one card per client. */
 export default function WorkOverview() {
   const { index, memberById, entries, me } = useStore();
-  const { openItemForm } = useDialogs();
   // Your own time only.
   const seconds = useMemo(() => rollupSeconds(index, entries), [index, entries]);
   const live = useMemo(() => liveItemIds(index, entries), [index, entries]);
@@ -21,17 +20,7 @@ export default function WorkOverview() {
   if (!clients.length) {
     return (
       <Card>
-        <EmptyState
-          icon={Building}
-          title="Start by adding a client"
-          action={
-            isAdmin(me) && (
-              <Button variant="primary" icon={Plus} onClick={() => openItemForm({ type: "client", lockType: true })}>
-                Add client
-              </Button>
-            )
-          }
-        />
+        <EmptyState icon={Building} title={isAdmin(me) ? "Start by adding a client" : "No clients yet"} text={isAdmin(me) ? ADD_HINT : undefined} />
       </Card>
     );
   }
@@ -45,11 +34,6 @@ export default function WorkOverview() {
             <h2 className="text-xl font-extrabold tracking-tight text-stone-900">Clients</h2>
           </div>
         </div>
-        {isAdmin(me) && (
-          <Button variant="secondary" size="sm" icon={Plus} onClick={() => openItemForm({ type: "client", lockType: true })}>
-            Client
-          </Button>
-        )}
       </div>
 
       <div className="grid gap-4 2xl:grid-cols-2">

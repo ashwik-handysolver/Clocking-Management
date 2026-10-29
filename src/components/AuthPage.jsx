@@ -22,7 +22,7 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered, no
   }, []);
 
   const [mode, setMode] = useState(initialMode); // signin | signup | forgot | recovery
-  const [form, setForm] = useState({ name: "", role: "", email: "", password: "", confirm: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -81,7 +81,7 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered, no
     }
 
     const { data, error: err } = signup
-      ? await supabase.auth.signUp({ email, password: form.password, options: { data: { name: form.name.trim(), role: form.role.trim() } } })
+      ? await supabase.auth.signUp({ email, password: form.password, options: { data: { name: form.name.trim() } } })
       : await supabase.auth.signInWithPassword({ email, password: form.password });
     setBusy(false);
     if (err) return setError(friendly(err.message));
@@ -234,14 +234,9 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered, no
 
           <form onSubmit={submit} className="space-y-3.5">
             {signup && (
-              <>
-                <Field label="Full name" required>
-                  <input required autoComplete="name" value={form.name} onChange={set("name")} className={inputClass} />
-                </Field>
-                <Field label="Role" hint="Optional">
-                  <input autoComplete="organization-title" value={form.role} onChange={set("role")} className={inputClass} />
-                </Field>
-              </>
+              <Field label="Full name" required>
+                <input required autoComplete="name" value={form.name} onChange={set("name")} className={inputClass} />
+              </Field>
             )}
 
             {mode !== "recovery" && (
@@ -251,7 +246,7 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered, no
             )}
 
             {(mode === "signin" || mode === "signup") && (
-              <Field label="Password" required hint={signup ? "At least 8 characters" : undefined}>
+              <Field label="Password" required>
                 <input
                   required
                   type="password"
@@ -266,7 +261,7 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered, no
 
             {mode === "recovery" && (
               <>
-                <Field label="New password" required hint="At least 8 characters">
+                <Field label="New password" required>
                   <input required type="password" minLength={8} autoComplete="new-password" value={form.password} onChange={set("password")} className={inputClass} />
                 </Field>
                 <Field label="Repeat new password" required>

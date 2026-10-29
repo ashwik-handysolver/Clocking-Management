@@ -1,11 +1,10 @@
 import { useMemo, useState } from "react";
-import { CalendarClock, CalendarOff, ChevronDown, ExternalLink, Gauge, History, Plus, Users } from "lucide-react";
+import { CalendarClock, CalendarOff, ChevronDown, ExternalLink, Gauge, History, Users } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { formatHours, shortDate, todayKey } from "../../lib/time";
 import { byUrgency, cycleStats } from "../../store/clientHours";
 import { ancestry, clientCycle, descendants } from "../../store/model";
 import { useStore } from "../../store/store";
-import { useDialogs } from "../dialogs";
 import { Avatar, AvatarStack, Button, Card, IconChip, cx } from "../ui";
 import HolidaysDialog from "./HolidaysDialog";
 
@@ -28,7 +27,6 @@ const STATUS = {
 
 export default function ClientHoursCard({ entries, now, className }) {
   const { allIndex: index, state, memberById } = useStore();
-  const { openItemForm } = useDialogs();
   const [all, setAll] = useState(false);
   const [openId, setOpenId] = useState(undefined); // undefined = the most urgent client starts open
   const [editingHolidays, setEditingHolidays] = useState(false);
@@ -80,9 +78,7 @@ export default function ClientHoursCard({ entries, now, className }) {
       {!rows.length ? (
         <div className="relative flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
           <p className="text-sm font-bold text-stone-700">No client has hours set yet</p>
-          <Button size="sm" variant="soft" icon={Plus} onClick={() => openItemForm({ type: "client", lockType: true })}>
-            Add a client with hours
-          </Button>
+          <p className="max-w-xs text-xs text-stone-500">Add a client with the + button at the top, or edit one, and fill in Client hours.</p>
         </div>
       ) : (
         <>
@@ -98,7 +94,6 @@ export default function ClientHoursCard({ entries, now, className }) {
               </Button>
             </div>
           )}
-          <p className="relative mt-auto pt-3 text-[11px] font-semibold text-stone-400">Billable hours only · working days are Mon–Fri minus holidays</p>
         </>
       )}
 

@@ -5,8 +5,7 @@ import { decimalHours, todayKey } from "../../lib/time";
 import { STATUSES, ancestry, assigneesOf, hasAssignee, isDone, isOverdue, isWork, liveItemIds, rollupSeconds } from "../../store/model";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
-import { useDialogs } from "../dialogs";
-import { AvatarStack, Button, Card, EmptyState, IconChip, Listbox, StatusIcon, cx } from "../ui";
+import { AvatarStack, Button, Card, EmptyState, IconChip, Listbox, StatusIcon, ADD_HINT, cx } from "../ui";
 
 function FilterSelect({ label, value, onChange, options }) {
   const on = value !== "all";
@@ -73,7 +72,6 @@ export function WorkTreeRail({ onShow }) {
 
 export default function WorkTree({ selectedId, onHide }) {
   const { state, items, index, memberById, me, entries } = useStore();
-  const { openItemForm } = useDialogs();
   const [query, setQuery] = useState("");
   const [assignee, setAssignee] = useState("all");
   const [status, setStatus] = useState("all");
@@ -218,19 +216,13 @@ export default function WorkTree({ selectedId, onHide }) {
       });
 
   const hasRows = index.childrenOf(null).some((c) => visible.get(c.id));
-  const counts = { clients: index.childrenOf(null).length, projects: items.filter((i) => i.type === "project").length };
 
   return (
     <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-2 px-5 pt-5 pb-3">
         <div className="flex items-center gap-3">
           <IconChip icon={Network} tone="brand" />
-          <div>
-            <h2 className="text-base font-extrabold tracking-tight text-stone-900">Work</h2>
-            <p className="text-xs text-stone-400">
-              {counts.clients} clients · {counts.projects} projects
-            </p>
-          </div>
+          <h2 className="text-base font-extrabold tracking-tight text-stone-900">Work</h2>
         </div>
         <div className="flex gap-1">
           <Button
@@ -242,11 +234,6 @@ export default function WorkTree({ selectedId, onHide }) {
             aria-label={allCollapsed ? "Expand all" : "Collapse all"}
             onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(parentIds))}
           />
-          {isAdmin(me) && (
-            <Button variant="soft" size="sm" icon={Plus} onClick={() => openItemForm({ type: "client", lockType: true })}>
-              Client
-            </Button>
-          )}
           {onHide && (
             <Button
               variant="ghost"
@@ -311,17 +298,7 @@ export default function WorkTree({ selectedId, onHide }) {
             }
           />
         ) : (
-          <EmptyState
-            icon={Plus}
-            title="No clients yet"
-            action={
-              isAdmin(me) && (
-                <Button variant="primary" size="sm" icon={Plus} onClick={() => openItemForm({ type: "client", lockType: true })}>
-                  Add client
-                </Button>
-              )
-            }
-          />
+          <EmptyState icon={Plus} title="No clients yet" text={isAdmin(me) ? ADD_HINT : undefined} />
         )}
       </div>
     </Card>

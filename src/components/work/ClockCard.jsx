@@ -139,17 +139,6 @@ export default function ClockCard({ subtask }) {
           <p className="text-lg font-extrabold tracking-tight text-stone-900">
             {busyElsewhere ? "Clocked in from another tab or device" : !allowed ? "Not assigned to you" : done ? "Subtask completed" : elsewhere ? "Switch your timer here" : "Start tracking time"}
           </p>
-          <p className="text-sm text-stone-500">
-            {busyElsewhere
-              ? "You can only clock in from one tab or device at a time."
-              : !allowed
-              ? "Only people assigned to this subtask can clock in."
-              : done
-                ? "Reopen it to track more time."
-                : elsewhere
-                  ? "Your current timer will stop and be logged."
-                  : `You'll be asked to share your screen. A screenshot is taken ${everyLabel}.`}
-          </p>
         </div>
         <div className={cx("grid gap-2", allowed ? "grid-cols-2 @xl:w-72" : "grid-cols-1 @xl:w-36")}>
           {/* Your time: only on subtasks assigned to you */}

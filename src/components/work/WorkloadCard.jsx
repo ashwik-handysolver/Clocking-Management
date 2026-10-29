@@ -101,8 +101,6 @@ export default function WorkloadCard() {
                       />
                     ));
                   })()}
-                  {/* team average */}
-                  {avg > 0 && <span aria-hidden="true" className="absolute -top-1 -bottom-1 w-0 border-l-2 border-dotted border-stone-400" style={{ left: `${(avg / max) * 100}%` }} />}
                 </div>
                 {hover === r.m.id && r.total > 0 && (
                   <span className="palette-fixed pointer-events-none absolute -top-2 right-0 z-20 -translate-y-full rounded-xl bg-stone-900 px-3 py-2 text-xs whitespace-nowrap text-white shadow-float">
@@ -120,11 +118,6 @@ export default function WorkloadCard() {
             );
           })}
         </ul>
-      )}
-      {avg > 0 && (
-        <p className="mt-3 flex items-center gap-1.5 text-[11px] font-semibold text-stone-400">
-          <span className="inline-block h-3 border-l border-dashed border-stone-400" /> Team average {hrs(avg)}
-        </p>
       )}
     </Card>
   );
