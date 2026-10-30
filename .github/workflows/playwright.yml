@@ -1,3 +1,4 @@
+
 name: Playwright UI Tests
 
 on:
@@ -35,6 +36,15 @@ jobs:
 
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
+
+      - name: Verify required environment variables
+        shell: bash
+        run: |
+          test -n "$VITE_SUPABASE_URL" || (echo "VITE_SUPABASE_URL is missing" && exit 1)
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY" || (echo "VITE_SUPABASE_PUBLISHABLE_KEY is missing" && exit 1)
+          test -n "$TEST_USER_EMAIL" || (echo "TEST_USER_EMAIL is missing" && exit 1)
+          test -n "$TEST_USER_PASSWORD" || (echo "TEST_USER_PASSWORD is missing" && exit 1)
+          echo "All required environment variables are configured."
 
       - name: Run Playwright tests
         run: npx playwright test --project=chromium
