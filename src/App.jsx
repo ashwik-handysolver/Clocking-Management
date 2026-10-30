@@ -84,6 +84,12 @@ function Shell() {
   const [treeHidden, setTreeHidden] = useStoredFlag(TREE_KEY);
   const [menuOpen, setMenuOpen] = useState(false);
 
+  // No page in the address (e.g. back from Google sign-in): show it as #/dashboard, the page you're on.
+  useEffect(() => {
+    const h = window.location.hash;
+    if (h === "" || h === "#" || h === "#/") window.history.replaceState(null, "", `${window.location.pathname}${window.location.search}#/dashboard`);
+  }, [route.page]);
+
   // Unknown pages or deleted items fall back to a list.
   useEffect(() => {
     // Skip if a navigation is already pending (e.g. delete → open parent).

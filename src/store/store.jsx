@@ -284,6 +284,9 @@ export function StoreProvider({ children }) {
       if (!authId.current) {
         ready.current = false;
         dispatch({ type: "hydrate", state: EMPTY });
+        // Signed out: drop the page you were on (e.g. #/screenshots) so the sign-in page has a clean address.
+        // Only app pages ("#/…"); sign-in and reset links carry their own codes in the address and are left alone.
+        if (window.location.hash.startsWith("#/")) window.history.replaceState(null, "", window.location.pathname + window.location.search);
         return setStatus("signedOut");
       }
       reload();
@@ -291,12 +294,26 @@ export function StoreProvider({ children }) {
     supabase.auth.getSession().then(({ data }) => onSession(data.session));
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "PASSWORD_RECOVERY") setRecovering(true); // opened a reset-password link: choose a new password first
-      // A fresh sign-in (not a page refresh): start on the dashboard.
-      if (event === "SIGNED_IN" && !authId.current && session) navigate("dashboard");
+      // A fresh sign-in (not a page refresh): start on the dashboard. Note the signed-in account first,
+      // so the "clear the address while signed out" rule below doesn't wipe #/dashboard straight away.
+      const freshSignIn = event === "SIGNED_IN" && !authId.current && session;
       if (event !== "INITIAL_SESSION") onSession(session);
+      if (freshSignIn) navigate("dashboard");
     });
     return () => data.subscription.unsubscribe();
   }, [reload]);
+
+  // While signed out, app pages typed into the address (e.g. #/screenshots) are cleared too.
+  useEffect(() => {
+    if (status !== "signedOut") return;
+    const clear = () =>
+      !authId.current && // only while nobody is signed in (not during a sign-in that's under way)
+      window.location.hash.startsWith("#/") &&
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+    clear();
+    window.addEventListener("hashchange", clear);
+    return () => window.removeEventListener("hashchange", clear);
+  }, [status]);
 
   // Live updates: reload whenever any table changes. One action (e.g. clocking in) changes several
   // tables at once, so changes are gathered and reloaded together: within a second while you're
