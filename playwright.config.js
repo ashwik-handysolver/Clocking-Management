@@ -10,6 +10,8 @@ export default defineConfig({
     headless: false,
     screenshot: 'only-on-failure',
     trace: 'retain-on-failure',
+
+headless: !!process.env.CI,
   },
 
   projects: [
