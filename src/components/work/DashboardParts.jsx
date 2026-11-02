@@ -5,7 +5,7 @@ import { CountUp } from "../motion";
  * Shared dashboard pieces: the bold header banner and the colourful stat tiles.
  */
 
-const greeting = (d = new Date()) => (d.getHours() < 12 ? "Good morning" : d.getHours() < 17 ? "Good afternoon" : "Good evening");
+const greeting = (d = new Date()) => (d.getHours() < 12 ? "Good Morning" : d.getHours() < 17 ? "Good Afternoon" : "Good Evening");
 
 /** Dark banner across the top of a dashboard. `children` go on the right (stats, buttons). */
 export function Hero({ name, title, children }) {
