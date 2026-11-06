@@ -504,7 +504,7 @@ const fromMonthKey = (key) => {
 
 /** Hours clocked per month: one bar each, with the hours on top. Click a month to show it in the numbers above. */
 function HoursChart({ entries, onPick }) {
-  const [span, setSpan] = useState("3");
+  const [span, setSpan] = useState("6"); // last 6 months by default
   const [customFrom, setCustomFrom] = useState(() => monthKey(addMonths(Date.now(), -5)));
   const [customTo, setCustomTo] = useState(() => monthKey(Date.now()));
   const now = Date.now();
