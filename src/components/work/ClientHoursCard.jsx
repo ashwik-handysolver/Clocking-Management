@@ -1,18 +1,18 @@
 import { useMemo, useState } from "react";
-import { CalendarClock, CalendarOff, ChevronDown, ExternalLink, Gauge, History, Users } from "lucide-react";
+import { CalendarClock, CalendarOff, ChevronDown, ExternalLink, Gauge, History } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { formatHours, shortDate, todayKey } from "../../lib/time";
 import { byUrgency, cycleStats } from "../../store/clientHours";
 import { ancestry, clientCycle, descendants } from "../../store/model";
 import { useStore } from "../../store/store";
-import { Avatar, AvatarStack, Button, Card, IconChip, cx } from "../ui";
+import { Button, Card, IconChip, cx } from "../ui";
 import { Collapse } from "../motion";
 import HolidaysDialog from "./HolidaysDialog";
 
 /*
  * Client hours (admin dashboard): each client's current billing cycle as an accordion.
  * The collapsed row shows name, status and a progress bar; opening it shows pace, hours needed
- * per day (and per person on the client's team), today's progress, who worked and the last cycle.
+ * per day (and per person on the client's team), today's progress and the last cycle.
  * Only billable time counts. Most urgent clients first, and the most urgent starts open.
  */
 
@@ -104,7 +104,6 @@ export default function ClientHoursCard({ entries, now, className }) {
 }
 
 function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
-  const { memberById } = useStore();
   const st = STATUS[s.status];
   const over = s.status === "over";
   const paceText = over
@@ -115,7 +114,6 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
         ? "Exactly on pace"
         : `${s.pace < 0 ? "Behind" : "Ahead"} by ${formatHours(Math.abs(s.pace))}`;
   const todayPct = s.neededPerDay ? Math.min(100, (s.todayUsed / s.neededPerDay) * 100) : 0;
-  const people = [...s.byMember.entries()].sort((a, b) => b[1] - a[1]);
   const perPerson = team.length ? s.neededPerDay / team.length : s.neededPerDay;
   const panelId = `client-hours-${client.id}`;
 
@@ -191,35 +189,6 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
               )}
             </div>
           )}
-
-          {/* who worked */}
-          <div className="rounded-xl bg-surface px-3 py-2.5 ring-1 ring-stone-900/5">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="flex items-center gap-1.5 text-xs font-bold text-stone-700">
-                <Users className="size-3.5 text-brand-500" /> Who worked this cycle
-              </span>
-              {team.length > 0 && <AvatarStack members={team} max={4} size="xs" />}
-            </div>
-            {people.length ? (
-              <ul className="space-y-1.5">
-                {people.map(([id, secs]) => {
-                  const m = memberById.get(id);
-                  return (
-                    <li key={id} className="flex items-center gap-2 text-xs">
-                      <Avatar member={m} size="xs" />
-                      <span className="w-20 truncate font-semibold text-stone-700">{m?.name.split(" ")[0] ?? "Someone"}</span>
-                      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-100">
-                        <span className="block h-full rounded-full bg-brand-400" style={{ width: `${(secs / s.used) * 100}%` }} />
-                      </span>
-                      <span className="w-14 text-right font-bold text-stone-900 tabular-nums">{formatHours(secs)}</span>
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="text-xs text-stone-400">No billable time yet</p>
-            )}
-          </div>
 
           <div className="flex items-center justify-between gap-2 text-xs">
             <span className="flex items-center gap-1 font-semibold text-stone-500">
