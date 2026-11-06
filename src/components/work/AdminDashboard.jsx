@@ -1,17 +1,15 @@
 import { useState } from "react";
-import { Activity, BadgeDollarSign, CircleSlash, Plus, Radio, Timer, Users } from "lucide-react";
+import { Activity, BadgeDollarSign, CircleSlash, Radio, Timer, Users } from "lucide-react";
 import { Legend, StackedBars } from "../charts";
 import { useNow } from "../../hooks/useNow";
-import { openItem } from "../../lib/router";
+import { navigate, openItem } from "../../lib/router";
 import { addDays, formatClock, formatDate, formatHours, formatTime, startOfWeek, timeAgo } from "../../lib/time";
 import { entryBilling, entrySeconds, pathLabel, workingMembers } from "../../store/model";
 import { useStore } from "../../store/store";
-import { useDialogs } from "../dialogs";
 import ClientHoursCard from "./ClientHoursCard";
 import ClientCyclesCard from "./ClientCyclesCard";
-import WorkloadCard from "./WorkloadCard";
-import { Hero, HeroStat, StatTile } from "./DashboardParts";
-import { Avatar, Button, Card, IconChip, cx } from "../ui";
+import { Hero, StatTile } from "./DashboardParts";
+import { Avatar, Card, IconChip, cx } from "../ui";
 import { useReveal } from "../motion";
 
 /*
@@ -70,12 +68,15 @@ function LiveNow({ team, entries, now: pageNow }) {
           const last = lastEnd(m.id);
           return (
             <li key={m.id} className="flex items-center gap-3 py-2.5">
-              <span className="relative">
+              {/* Picture and name open their profile; the subtask line opens the subtask */}
+              <button type="button" onClick={() => navigate("team", m.id)} aria-label={`Open ${m.name}'s profile`} className="relative shrink-0 rounded-full transition hover:scale-105">
                 <Avatar member={m} size="sm" />
                 {e && <span className="absolute -right-0.5 -bottom-0.5 size-2.5 rounded-full bg-emerald-500 ring-2 ring-surface" />}
-              </span>
+              </button>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold text-stone-800">{m.name}</p>
+                <button type="button" onClick={() => navigate("team", m.id)} className="block max-w-full truncate text-left text-sm font-bold text-stone-800 hover:text-brand-700">
+                  {m.name}
+                </button>
                 {e ? (
                   <button type="button" onClick={() => sub && openItem(sub.id)} className="block max-w-full truncate text-left text-xs text-stone-500 hover:text-brand-700">
                     {sub?.name ?? "Subtask"} <span className="text-stone-400">· {sub ? pathLabel(index, sub.id).replaceAll(" / ", " › ") : ""}</span>
@@ -191,7 +192,6 @@ export default function AdminDashboard() {
   const { state, teamEntries, allIndex: index, me } = useStore();
   const revealRef = useReveal(); // cards appear as you scroll to them
   // Team members, plus the admin once they take on work themself.
-  const { openEntryForm } = useDialogs();
   const team = workingMembers(state.members, state.items, teamEntries);
   const anyRunning = teamEntries.some((e) => e.end == null);
   // The page refreshes its numbers every 30 s; only the "On the clock" card ticks every second (its own timer),
@@ -206,12 +206,7 @@ export default function AdminDashboard() {
 
   return (
     <div ref={revealRef} className="@container reveal space-y-4">
-      <Hero name={me.name.split(" ")[0]} title="Here's how the team is doing today">
-        <HeroStat label="Billable share" value={total ? `${Math.round((billable / total) * 100)}%` : "—"} />
-        <Button variant="primary" icon={Plus} onClick={() => openEntryForm({})}>
-          Log time
-        </Button>
-      </Hero>
+      <Hero name={me.name.split(" ")[0]} title="Here's how the team is doing today" />
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <StatTile icon={Radio} tone="emerald" label="Clocked in now" value={`${live} / ${team.length}`} sub={live ? "Working right now" : "Nobody is clocked in"} />
@@ -236,11 +231,9 @@ export default function AdminDashboard() {
       <ClientCyclesCard entries={teamEntries} now={now} />
 
       <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
-        <WorkloadCard />
+        <TeamActivity now={now} />
         <TeamHours team={team} entries={teamEntries} now={now} />
       </div>
-
-      <TeamActivity now={now} />
     </div>
   );
 }

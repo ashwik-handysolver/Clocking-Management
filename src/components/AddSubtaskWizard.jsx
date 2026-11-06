@@ -36,7 +36,7 @@ export function presetFrom(index, contextId, count) {
   return picked;
 }
 
-export default function AddSubtaskWizard({ kind, contextId, onClose, toast }) {
+export default function AddSubtaskWizard({ kind, contextId, assignees, onClose, toast }) {
   const { items, index } = useStore();
   const [picked, setPicked] = useState(() => presetFrom(index, contextId, PICK[kind])); // [clientId, projectId, taskId]
   const [step, setStep] = useState(() => picked.length);
@@ -113,6 +113,7 @@ export default function AddSubtaskWizard({ kind, contextId, onClose, toast }) {
           <ItemForm
             embedded
             type={kind}
+            assignees={assignees}
             lockType
             parentId={parentId ?? undefined}
             backLabel={step > 0 ? "Back" : "Cancel"}

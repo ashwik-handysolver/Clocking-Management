@@ -1,17 +1,17 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Archive, ArrowLeft, CalendarCheck, Camera, CircleCheck, ListChecks, Mail, Pencil, Timer, Trash, TriangleAlert, UserRound,
 } from "lucide-react";
 import { navigate, openItem } from "../../lib/router";
-import { formatHours, todayKey } from "../../lib/time";
+import { dueInfo, formatHours, todayKey } from "../../lib/time";
 import {
-  TYPE_LABEL, ancestry, assigneesOf, descendants, isDone, isOverdue, isWork, progressOf, rollupSeconds,
+  TYPE_LABEL, ancestry, assigneesOf, descendants, entrySeconds, isDone, isOverdue, isWork, pathLabel, progressOf, rollupSeconds,
 } from "../../store/model";
-import { canArchive, canCreate, canDeleteItem, canEditDetails } from "../../store/permissions";
+import { canArchive, canCreate, canDeleteItem, canEditDetails, isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import { TYPE_ICON } from "../ItemForm";
-import { AvatarStack, Button, Card, IconChip, ProgressRing, TONE, Watermark, cx } from "../ui";
+import { AvatarStack, Button, Card, IconChip, Modal, ProgressRing, StatusIcon, TONE, Watermark, cx } from "../ui";
 import { DoneName } from "../motion";
 import ChildrenList from "./ChildrenList";
 import ClientWork from "./ClientWork";
@@ -19,9 +19,17 @@ import ClockCard from "./ClockCard";
 import WorkProperties, { Prop } from "./WorkProperties";
 import { useDeleteItem } from "./useDeleteItem";
 
-function Stat({ icon, color = "brand", label, value, sub, valueClass, aside }) {
+function Stat({ icon, color = "brand", label, value, sub, valueClass, aside, onClick }) {
+  const Box = onClick ? "button" : "div";
   return (
-    <div className={cx("relative overflow-hidden rounded-2xl bg-gradient-to-br p-3.5 ring-1 ring-stone-900/5", TONE[color].bg)}>
+    <Box
+      {...(onClick && { type: "button", onClick })}
+      className={cx(
+        "relative overflow-hidden rounded-2xl bg-gradient-to-br p-3.5 text-left ring-1 ring-stone-900/5",
+        TONE[color].bg,
+        onClick && "transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-stone-900/10",
+      )}
+    >
       <Watermark icon={icon} tone={color} className="!-right-3 !-bottom-5 !size-20" />
       <div className="relative flex items-center gap-3">
         <IconChip icon={icon} tone={color} size="sm" />
@@ -32,19 +40,67 @@ function Stat({ icon, color = "brand", label, value, sub, valueClass, aside }) {
         </div>
         {aside}
       </div>
-    </div>
+    </Box>
+  );
+}
+
+/** The overdue tasks and subtasks under an item, latest due first. Click one to open it. */
+function OverdueDialog({ items, onClose }) {
+  const { index, memberById } = useStore();
+  const sorted = [...items].sort((a, b) => a.due.localeCompare(b.due));
+  return (
+    <Modal title={`Overdue (${items.length})`} icon={TriangleAlert} size="lg" onClose={onClose}>
+      <ul className="-mx-2 space-y-0.5">
+        {sorted.map((x) => {
+          const due = dueInfo(x.due);
+          const people = assigneesOf(x).map((id) => memberById.get(id)).filter(Boolean);
+          return (
+            <li key={x.id}>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openItem(x.id);
+                }}
+                className="group flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-red-50/70"
+              >
+                <StatusIcon status={x.status} className="size-[18px] shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-stone-800 group-hover:text-red-700">{x.name}</span>
+                  <span className="block truncate text-xs text-stone-400">{pathLabel(index, x.id).replaceAll(" / ", " › ")}</span>
+                </span>
+                {people.length > 0 && <AvatarStack members={people} max={3} />}
+                <span className="w-24 shrink-0 text-right text-xs font-bold text-red-600">{due.label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </Modal>
   );
 }
 
 /** Roll-up numbers for a client, project or task. */
 function Summary({ item, seconds }) {
-  const { index, memberById, me } = useStore();
+  const { index, memberById, me, teamEntries } = useStore();
+  const [showOverdue, setShowOverdue] = useState(false);
   const work = descendants(index, item.id).slice(1).filter(isWork);
   const prog = progressOf(index, item.id);
   // Same units as Progress: subtasks, plus tasks that have no subtasks.
   const open = prog.total - prog.done;
   const today = todayKey();
-  const overdue = work.filter((x) => isOverdue(x, today)).length;
+  const overdueItems = work.filter((x) => isOverdue(x, today));
+  const overdue = overdueItems.length;
+  // Admin on a client page: everyone's time on it, instead of their own.
+  const teamView = isAdmin(me) && item.type === "client";
+  const teamTime = useMemo(() => {
+    if (!teamView) return null;
+    const ids = new Set(descendants(index, item.id).map((x) => x.id));
+    const mineHere = teamEntries.filter((e) => ids.has(e.subtaskId));
+    const secs = mineHere.reduce((s, e) => s + entrySeconds(e), 0);
+    const clockers = [...new Set(mineHere.map((e) => e.memberId))].map((id) => memberById.get(id)).filter(Boolean);
+    return { secs, clockers };
+  }, [teamView, index, item.id, teamEntries, memberById]);
   // On a task, "your time" covers only the subtasks assigned to you, measured against their estimates.
   const mySubtasks = item.type === "task" ? work.filter((x) => x.type === "subtask" && assigneesOf(x).includes(me.id)) : [];
   const logged = item.type === "task" ? mySubtasks.reduce((s, x) => s + (seconds.get(x.id) ?? 0), 0) : seconds.get(item.id) ?? 0;
@@ -82,16 +138,29 @@ function Summary({ item, seconds }) {
           value={overdue}
           valueClass={overdue ? "!text-red-600" : undefined}
           sub={overdue ? "Needs attention" : "All on track"}
+          onClick={overdue ? () => setShowOverdue(true) : undefined}
         />
-        <Stat
-          icon={Timer}
-          color="brand"
-          label="Your time"
-          value={formatHours(logged)}
-          sub={estimate ? `of ${estimate}h estimated for you` : item.type === "task" ? "No subtasks assigned to you" : people.length ? `${people.length} people assigned` : "No time yet"}
-          aside={!estimate && people.length ? <AvatarStack members={people} max={3} /> : estimate ? <ProgressRing value={(logged / (estimate * 3600)) * 100} tone={logged > estimate * 3600 ? "red" : "brand"} /> : null}
-        />
+        {teamView ? (
+          <Stat
+            icon={Timer}
+            color="brand"
+            label="Team time"
+            value={formatHours(teamTime.secs)}
+            sub={teamTime.clockers.length ? `by ${teamTime.clockers.length} ${teamTime.clockers.length === 1 ? "person" : "people"}` : "No time yet"}
+            aside={teamTime.clockers.length ? <AvatarStack members={teamTime.clockers} max={3} /> : null}
+          />
+        ) : (
+          <Stat
+            icon={Timer}
+            color="brand"
+            label="Your time"
+            value={formatHours(logged)}
+            sub={estimate ? `of ${estimate}h estimated for you` : item.type === "task" ? "No subtasks assigned to you" : people.length ? `${people.length} people assigned` : "No time yet"}
+            aside={!estimate && people.length ? <AvatarStack members={people} max={3} /> : estimate ? <ProgressRing value={(logged / (estimate * 3600)) * 100} tone={logged > estimate * 3600 ? "red" : "brand"} /> : null}
+          />
+        )}
       </div>
+      {showOverdue && <OverdueDialog items={overdueItems} onClose={() => setShowOverdue(false)} />}
     </div>
   );
 }

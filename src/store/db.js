@@ -187,8 +187,8 @@ export async function readBeat(memberId) {
 /* ---------- Screenshots (admin only, enforced by RLS) ---------- */
 
 /** Screenshot records, newest first, optionally for one member and a time range [from, to). */
-export async function listSnapshots({ memberId, from, to } = {}) {
-  let q = supabase.from("snapshots").select("*").order("taken_at", { ascending: false }).limit(2000);
+export async function listSnapshots({ memberId, from, to, limit = 2000 } = {}) {
+  let q = supabase.from("snapshots").select("*").order("taken_at", { ascending: false }).limit(limit);
   if (memberId) q = q.eq("member_id", memberId);
   if (from) q = q.gte("taken_at", iso(from));
   if (to) q = q.lt("taken_at", iso(to));

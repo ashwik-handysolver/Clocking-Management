@@ -51,7 +51,7 @@ export default function OfflineBanner() {
       ) : (
         <p>
           <span className="font-bold">You're offline.</span> Changes can't be saved until the connection is back.
-          {clocking && " Keep this tab open: screenshots are kept and uploaded later. If you're offline for more than 2 minutes, that time isn't counted; your timer starts again by itself once you're back."}
+          {clocking && " Keep this tab open: screenshots are kept and uploaded later. If you're offline for more than 3 minutes, that time isn't counted; your timer starts again by itself once you're back."}
         </p>
       )}
     </div>

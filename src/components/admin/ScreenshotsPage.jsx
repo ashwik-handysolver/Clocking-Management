@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { Camera, Check, ChevronDown, ChevronLeft, ChevronRight, ImageOff, Search, Trash, X } from "lucide-react";
 import { addDays, formatDate, formatTime, fromDateKey, startOfWeek, toDateKey } from "../../lib/time";
 import { navigate, openItem, useRoute } from "../../lib/router";
@@ -65,12 +66,18 @@ export default function ScreenshotsPage() {
   const scopeClient = scope ? ancestry(index, scope.id).find((x) => x.type === "client") : null;
 
   const [clientId, setClientId] = useState(() => scopeClient?.id ?? "");
-  const [memberId, setMemberId] = useState("");
+  // From a team member's profile (#/screenshots?member=<id>): that person, this week.
+  const fromProfile = admin && params.member ? params.member : "";
+  const [memberId, setMemberId] = useState(fromProfile);
   const [subtaskId, setSubtaskId] = useState("");
   // Today by default; from a task or subtask page, everything since it was created.
-  const [range, setRange] = useState(scope ? "custom" : "today");
-  const [from, setFrom] = useState(() => (scope ? toDateKey(scope.createdAt ?? startOfWeek(Date.now())) : toDateKey(Date.now())));
-  const [to, setTo] = useState(() => toDateKey(Date.now()));
+  // ?date=YYYY-MM-DD (e.g. a day picked on someone's profile): just that day.
+  const oneDay = /^\d{4}-\d{2}-\d{2}$/.test(params.date ?? "") ? params.date : "";
+  const [range, setRange] = useState(scope || oneDay ? "custom" : fromProfile ? "week" : "today");
+  const [from, setFrom] = useState(() =>
+    oneDay || (scope ? toDateKey(scope.createdAt ?? startOfWeek(Date.now())) : fromProfile ? toDateKey(startOfWeek(Date.now())) : toDateKey(Date.now())),
+  );
+  const [to, setTo] = useState(() => oneDay || toDateKey(Date.now()));
   const [density, setDensity] = useState(() => {
     try {
       return localStorage.getItem(DENSITY_KEY) === "large" ? "large" : "compact";
@@ -537,7 +544,7 @@ function Viewer({ shot, url, member, onClose, onPrev, onNext, needUrl, onDelete 
     return () => window.removeEventListener("keydown", onKey);
   });
   const arrow = "absolute top-1/2 grid size-11 -translate-y-1/2 place-items-center rounded-full bg-white/15 text-white backdrop-blur hover:bg-white/25 disabled:opacity-30";
-  return (
+  return createPortal( // on top of the whole screen, wherever the page is scrolled
     <div role="dialog" aria-modal="true" aria-label="Screenshot" className="palette-fixed fixed inset-0 z-[80] flex flex-col bg-black/85 p-4" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="mb-3 flex items-center gap-3 text-white">
         <Avatar member={member} size="sm" />
@@ -566,6 +573,7 @@ function Viewer({ shot, url, member, onClose, onPrev, onNext, needUrl, onDelete 
           <ChevronRight className="size-6" />
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

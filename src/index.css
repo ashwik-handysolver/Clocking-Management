@@ -94,8 +94,10 @@
     to { transform: none; }
   }
   /* Pages and list items fade up into place */
-  --animate-page-in: fade-up .3s var(--ease-smooth) both;
-  --animate-fade-up: fade-up .35s var(--ease-smooth) both;
+  /* "backwards", not "both": once done, nothing is left on the element. A leftover transform would make
+     fixed-position things inside (dialogs, viewers) position relative to the page instead of the screen. */
+  --animate-page-in: fade-up .3s var(--ease-smooth) backwards;
+  --animate-fade-up: fade-up .35s var(--ease-smooth) backwards;
   @keyframes fade-up {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: none; }

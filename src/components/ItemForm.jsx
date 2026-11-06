@@ -49,13 +49,14 @@ function initialValues(item, type, me) {
  * `parentId` presets the parent (and hides its picker). `embedded` renders just the form,
  * for use inside another dialog, with a Back button that calls `onBack`.
  */
-export default function ItemForm({ id, type: initialType = "client", contextId, parentId: presetParent, billing: billingProp, lockType, embedded, onBack, backLabel = "Back", onClose, toast }) {
+export default function ItemForm({ id, type: initialType = "client", contextId, parentId: presetParent, assignees: presetAssignees, billing: billingProp, lockType, embedded, onBack, backLabel = "Back", onClose, toast }) {
   const { state, items, index, actions, me } = useStore();
   const editing = id ? index.get(id) : null;
   const [type, setType] = useState(editing?.type ?? initialType);
   const [values, setValues] = useState(() => {
     const v = initialValues(editing, editing?.type ?? initialType, me);
     if (!editing) v.parentId = presetParent || resolveParent(index, contextId, initialType);
+    if (!editing && presetAssignees) v.assignees = presetAssignees; // e.g. "Assign a subtask" from someone's profile
     v.billing = (editing && billingOf(index, editing.id)) || billingProp || (contextId && billingOf(index, contextId)) || "billable";
     return v;
   });
@@ -339,7 +340,7 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
               value={values.description}
               onChange={set("description")}
               rows={3}
-              placeholder={work ? "Context, expected outcome, acceptance criteria… or tap the mic and speak" : "Short summary, or tap the mic and speak"}
+              placeholder={work ? "Context, expected outcome, acceptance criteria…" : "Short summary"}
               className={cx(inputClass, "h-auto resize-y py-2 pr-12 pb-10")}
             />
             {/* voice typing */}

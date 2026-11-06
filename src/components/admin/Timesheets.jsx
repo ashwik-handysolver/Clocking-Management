@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  BadgeDollarSign, ChevronLeft, ChevronRight, CircleSlash, Clock, History, Pencil, PencilLine, Plus, Square, Trash,
+  BadgeDollarSign, ChevronLeft, ChevronRight, CircleSlash, Clock, History, Pencil, PencilLine, Plus, Trash,
 } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { openItem } from "../../lib/router";
@@ -86,18 +86,6 @@ function Entries() {
       onConfirm: () => {
         actions.deleteEntry(e.id);
         toast("Time entry deleted");
-      },
-    });
-  };
-  const stop = (e) => {
-    const m = memberById.get(e.memberId);
-    confirm({
-      title: `Stop ${m?.name.split(" ")[0]}'s timer?`,
-      message: `The timer has been running since ${formatTime(e.start)} (${formatHours(entrySeconds(e, now))}). It will be stopped now.`,
-      confirmLabel: "Stop timer",
-      onConfirm: () => {
-        actions.stopMemberTimer(e.memberId);
-        toast("Timer stopped");
       },
     });
   };
@@ -211,11 +199,6 @@ function Entries() {
                     </td>
                     <td className="px-2 py-2.5">
                       <span className="flex justify-end gap-0.5">
-                        {live && (
-                          <Button size="xs" variant="soft" icon={Square} onClick={() => stop(e)} title="Stop this timer">
-                            Stop
-                          </Button>
-                        )}
                         <Button size="xs" variant="ghost" iconOnly icon={Pencil} aria-label="Edit entry" title="Edit entry" onClick={() => openEntryForm({ entryId: e.id })} />
                         <Button size="xs" variant="dangerGhost" iconOnly icon={Trash} aria-label="Delete entry" title="Delete entry" onClick={() => remove(e)} />
                       </span>

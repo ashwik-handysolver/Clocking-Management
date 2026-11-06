@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
-import { ChevronDown, Crown, Pencil, RotateCcw, Trash, UserMinus, Users } from "lucide-react";
+import { ChevronDown, ChevronRight, Crown, Pencil, RotateCcw, Trash, UserMinus, Users } from "lucide-react";
 import { formatHours, startOfDay } from "../../lib/time";
+import { navigate, useRoute } from "../../lib/router";
 import { supabase } from "../../lib/supabase";
 import { deleteMemberAccount, removeMember } from "../../store/db";
 import { entrySeconds, isDone } from "../../store/model";
@@ -8,6 +9,7 @@ import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import { Avatar, Button, Card, EmptyState, Field, Modal, cx, inputClass } from "../ui";
 import { AdminPage } from "./AdminPage";
+import MemberProfile from "./MemberProfile";
 
 /*
  * Team (admin): everyone with an account. Edit their name, role and colour, or remove them.
@@ -18,9 +20,17 @@ import { AdminPage } from "./AdminPage";
 
 export const COLORS = ["#f97316", "#2563eb", "#0d9488", "#9333ea", "#db2777", "#ca8a04", "#4f46e5", "#059669", "#dc2626", "#0891b2"];
 
+/** Team members in list order: admins first, then by name (removed people left out). */
+export const sortedTeam = (members) => members.filter((m) => !m.removedAt).sort((a, b) => b.isAdmin - a.isAdmin || a.name.localeCompare(b.name));
+
+/** Team (admin): the member list, or one member's profile at #/team/<memberId>. */
 export default function TeamPage() {
-  const { state, items, teamEntries, me, actions } = useStore();
-  const { confirm, toast } = useDialogs();
+  const { id } = useRoute();
+  return id ? <MemberProfile memberId={id} /> : <TeamList />;
+}
+
+function TeamList() {
+  const { state, items, teamEntries, me } = useStore();
   const [editing, setEditing] = useState(null);
   const [showRemoved, setShowRemoved] = useState(false);
 
@@ -34,9 +44,30 @@ export default function TeamPage() {
     live: teamEntries.some((e) => e.memberId === m.id && e.end == null),
   });
 
-  const active = state.members.filter((m) => !m.removedAt).sort((a, b) => b.isAdmin - a.isAdmin || a.name.localeCompare(b.name));
+  const active = sortedTeam(state.members);
   const removed = state.members.filter((m) => m.removedAt).sort((a, b) => b.removedAt - a.removedAt);
   const adminCount = active.filter((m) => m.isAdmin).length;
+
+  const { askRemove, askDelete, allowBack } = useMemberActions();
+
+  return (
+    <TeamListView
+      {...{ active, removed, adminCount, statsFor, showRemoved, setShowRemoved, editing, setEditing, askRemove, askDelete, allowBack, me }}
+    />
+  );
+}
+
+/**
+ * Remove, delete and let-back-in for a team member, each behind a confirmation. Shared by the Team list
+ * and a member's profile. `after` runs once a delete has gone through (e.g. leave their profile).
+ */
+export function useMemberActions() {
+  const { items, teamEntries, me, actions } = useStore();
+  const { confirm, toast } = useDialogs();
+  const statsFor = (m) => ({
+    open: items.filter((i) => i.type === "subtask" && !isDone(i) && (i.assignees ?? []).includes(m.id)).length,
+    live: teamEntries.some((e) => e.memberId === m.id && e.end == null),
+  });
 
   const askRemove = (m) => {
     const s = statsFor(m);
@@ -57,7 +88,7 @@ export default function TeamPage() {
   };
 
   // Delete for good: sign-in, profile, logged time and screenshots.
-  const askDelete = (m) => {
+  const askDelete = (m, after) => {
     const hours = teamEntries.filter((e) => e.memberId === m.id).reduce((t, e) => t + entrySeconds(e), 0);
     const self = m.id === me.id;
     confirm({
@@ -73,6 +104,7 @@ export default function TeamPage() {
             return;
           }
           toast(`${m.name}'s account was deleted`);
+          after?.();
         } catch (err) {
           toast(`Couldn't delete: ${err.message ?? err}`, "error");
         }
@@ -91,6 +123,26 @@ export default function TeamPage() {
       },
     });
 
+  // Admin ↔ team member. Nobody changes their own access (so there's always an admin).
+  const askAccess = (m) => {
+    const makeAdmin = !m.isAdmin;
+    confirm({
+      title: makeAdmin ? `Make ${m.name} an admin?` : `Make ${m.name} a team member?`,
+      message: makeAdmin
+        ? `${m.name} will be able to see everyone's time and screenshots, manage the team, and set up clients and projects.`
+        : `${m.name} will only see their own time and screenshots, and won't manage the team or clients any more.`,
+      confirmLabel: makeAdmin ? "Make admin" : "Make team member",
+      onConfirm: () => {
+        actions.updateMember(m.id, { isAdmin: makeAdmin });
+        toast(makeAdmin ? `${m.name} is now an admin` : `${m.name} is now a team member`);
+      },
+    });
+  };
+
+  return { askRemove, askDelete, allowBack, askAccess, canChangeAccess: (m) => m.id !== me.id };
+}
+
+function TeamListView({ active, removed, adminCount, statsFor, showRemoved, setShowRemoved, editing, setEditing, askRemove, askDelete, allowBack, me }) {
   return (
     <AdminPage title="Team">
       <Card className="p-4 @md:p-5">
@@ -109,6 +161,12 @@ export default function TeamPage() {
               const self = m.id === me.id;
               return (
                 <li key={m.id} className="flex flex-wrap items-center gap-3 py-3 @xl:flex-nowrap">
+                  {/* Name and picture open their profile */}
+                  <button
+                    type="button"
+                    onClick={() => navigate("team", m.id)}
+                    className="group -m-1.5 flex min-w-0 flex-1 items-center gap-3 rounded-2xl p-1.5 text-left transition hover:bg-brand-50/70"
+                  >
                   <span className="relative">
                     <Avatar member={m} />
                     {s.live && <span className="absolute -right-0.5 -bottom-0.5 size-3 rounded-full bg-emerald-500 ring-2 ring-surface" title="Clocked in" />}
@@ -127,6 +185,8 @@ export default function TeamPage() {
                       {m.role || "No role set"} · {m.email}
                     </p>
                   </div>
+                  <ChevronRight className="size-4 shrink-0 text-stone-300 transition group-hover:translate-x-0.5 group-hover:text-brand-500" />
+                  </button>
                   <div className="flex items-center gap-4 text-right text-xs">
                     <span>
                       <span className="block font-extrabold text-stone-900 tabular-nums">{formatHours(s.hours)}</span>
@@ -199,7 +259,7 @@ export default function TeamPage() {
   );
 }
 
-function EditMember({ member, onClose }) {
+export function EditMember({ member, onClose }) {
   const { actions, me } = useStore();
   const self = member.id === me.id;
   const [admin, setAdmin] = useState(!!member.isAdmin);

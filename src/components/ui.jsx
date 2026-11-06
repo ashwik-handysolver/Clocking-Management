@@ -564,7 +564,9 @@ export function Modal({ title, subtitle, icon: Icon, onClose, children, footer, 
   }, []);
 
   const width = { sm: "sm:max-w-md", md: "sm:max-w-xl", lg: "sm:max-w-2xl" }[size];
-  return (
+  // Drawn straight into <body>: inside a page, a container (e.g. one using container queries) can make
+  // "fixed" position relative to the page instead of the screen, so the dialog could open out of view.
+  return createPortal(
     <div
       className="fixed inset-0 z-[70] flex items-end justify-center bg-black/30 backdrop-blur-sm sm:items-center sm:p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
@@ -592,7 +594,8 @@ export function Modal({ title, subtitle, icon: Icon, onClose, children, footer, 
         <div className="overflow-y-auto px-6 pb-5 scrollbar-thin">{children}</div>
         {footer && <div className="flex justify-end gap-2 rounded-b-3xl border-t border-stone-100 bg-stone-50/60 px-6 py-4">{footer}</div>}
       </Tag>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

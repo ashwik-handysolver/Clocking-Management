@@ -17,7 +17,9 @@ import { useDialogs } from "./dialogs";
  */
 
 const BEAT_MS = 30_000; // how often the clocked-in tab checks in
-const STALE_MS = 90_000; // no check-in for this long = abandoned (the server job uses 2 minutes)
+// No check-in for this long = abandoned. Check-ins are every 30 s, but Chrome can slow a background tab
+// to about one a minute, so allow two missed ones. The server's clean-up job uses 3 minutes.
+const STALE_MS = 150_000;
 const ASK_EVERY_MS = 10_000; // how often other tabs/devices look at the latest check-in
 
 const ClockContext = createContext(null);
@@ -145,9 +147,12 @@ export function ClockProvider({ children }) {
         const beat = await readBeat(entry.memberId);
         const now = Date.now();
         const mine = beat?.entryId === entry.id ? beat : null;
-        const otherDeviceAlive = mine && mine.deviceId !== DEVICE_ID && now - mine.beatAt < STALE_MS;
+        // A recent check-in for this clocking means some tab is still sharing its screen: another device,
+        // or another tab in THIS browser (its local lock can look stale when Chrome slows a background tab's
+        // timers, so the check-in is what counts). Only stop when nothing has checked in for a while.
+        const stillCheckingIn = mine && now - mine.beatAt < STALE_MS;
         const justStarted = !mine && now - entry.start < STALE_MS; // its first check-in may not be saved yet
-        if (otherDeviceAlive || justStarted) return setBusyElsewhere(true);
+        if (stillCheckingIn || justStarted) return setBusyElsewhere(true);
         if (latest.current.running?.id !== entry.id || session.current) return; // changed while we waited
         const lock = readLock();
         const lastSeen = Math.max(mine?.beatAt ?? 0, lock?.beat ?? 0) || entry.start;

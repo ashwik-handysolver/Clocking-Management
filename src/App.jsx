@@ -96,7 +96,7 @@ function Shell() {
     const stillHere = window.location.hash.includes(route.id ?? route.page);
     if (!stillHere) return;
     if (route.page !== page) navigate(page);
-    else if (route.id && !routeItem) navigate(page);
+    else if (page === "work" && route.id && !routeItem) navigate(page); // a deleted item (other pages use the id themselves, e.g. #/team/<member>)
   }, [route.page, route.id, routeItem, page]);
 
   useEffect(() => {

@@ -7,8 +7,12 @@ import { CountUp } from "../motion";
 
 const greeting = (d = new Date()) => (d.getHours() < 12 ? "Good Morning" : d.getHours() < 17 ? "Good Afternoon" : "Good Evening");
 
-/** Dark banner across the top of a dashboard. `children` go on the right (stats, buttons). */
-export function Hero({ name, title, children }) {
+/**
+ * Dark banner across the top of a dashboard. `children` go on the right (stats, buttons).
+ * Optional: `greeting={null}` shows just the name (e.g. someone's profile), `lead` sits before the text
+ * (e.g. their picture) and `details` is a line under the title.
+ */
+export function Hero({ name, title, children, greeting: greet = true, lead, details }) {
   const today = new Date().toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" });
   return (
     <section className="palette-fixed relative overflow-hidden rounded-3xl bg-stone-900 px-6 py-6 text-white shadow-float @3xl:px-8 @3xl:py-7">
@@ -18,12 +22,15 @@ export function Hero({ name, title, children }) {
       {/* faint dot grid */}
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgb(255_255_255/0.07)_1px,transparent_1px)] [background-size:18px_18px]" />
       <div className="relative flex flex-col gap-5 @3xl:flex-row @3xl:items-end @3xl:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-bold tracking-[0.18em] text-brand-300 uppercase">{today}</p>
-          <h1 className="mt-1.5 text-2xl font-black tracking-tight @3xl:text-3xl">
-            {greeting()}, {name}
-          </h1>
-          {title && <p className="mt-1 text-sm font-medium text-white/70">{title}</p>}
+        {/* Phones: the picture (if any) sits above the name */}
+        <div className="flex min-w-0 flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-5">
+          {lead}
+          <div className="min-w-0">
+            {greet && <p className="text-xs font-bold tracking-[0.18em] text-brand-300 uppercase">{today}</p>}
+            <h1 className={cx("text-2xl font-black tracking-tight @3xl:text-3xl", greet && "mt-1.5")}>{greet ? `${greeting()}, ${name}` : name}</h1>
+            {title && <div className="mt-1 text-sm font-medium text-white/70">{title}</div>}
+            {details && <div className="mt-2 text-xs font-medium text-white/70">{details}</div>}
+          </div>
         </div>
         {children && <div className="flex flex-wrap items-center gap-2.5">{children}</div>}
       </div>
