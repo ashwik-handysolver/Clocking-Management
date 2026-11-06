@@ -16,7 +16,7 @@ const iso = (v) => (v == null ? null : new Date(v).toISOString());
 
 const memberFrom = (r) => ({
   id: r.id, authUserId: r.auth_user_id, name: r.name, role: r.role, email: r.email, color: r.color, isAdmin: r.is_admin,
-  removedAt: r.removed_at ? Date.parse(r.removed_at) : null, createdAt: ms(r.created_at), avatarUrl: r.avatar_url ?? "",
+  removedAt: r.removed_at ? Date.parse(r.removed_at) : null, createdAt: ms(r.created_at), avatarUrl: r.avatar_url ?? "", hidden: !!r.hidden,
 });
 const memberTo = (m) => ({
   id: m.id, name: m.name, role: m.role ?? "", email: m.email, color: m.color, removed_at: m.removedAt ? iso(m.removedAt) : null,

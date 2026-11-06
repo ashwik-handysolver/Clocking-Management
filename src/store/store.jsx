@@ -260,6 +260,8 @@ export function StoreProvider({ children }) {
         return;
       }
       const member = data.members.find((m) => m.authUserId === authId.current);
+      // Hidden accounts (e.g. the starter "Admin") never show anywhere in the app, except to themselves.
+      data.members = data.members.filter((m) => !m.hidden || m === member);
       dispatch({ type: "hydrate", state: data });
       if (!member) return setStatus("noMember");
       dispatch({ type: "signedIn", memberId: member.id });
