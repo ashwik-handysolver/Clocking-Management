@@ -106,6 +106,15 @@ export default function MemberProfile({ memberId }) {
     range === "week" ? startOfWeek(now) : range === "month" ? monthStart(now) : range === "custom" ? fromDateKey(customFrom) : 0;
   const until = range === "custom" ? fromDateKey(customTo) + DAY : now + 1;
   const rangeKey = range === "custom" ? `${customFrom}-${customTo}` : range; // numbers count up again when it changes
+  // Named on the tile, so it's clear the hours start again each month (the default).
+  const periodLabel =
+    range === "month"
+      ? formatDate(now, { month: "long" })
+      : range === "week"
+        ? "this week"
+        : range === "all"
+          ? "all time"
+          : `${formatDate(fromDateKey(customFrom))} – ${formatDate(fromDateKey(customTo))}`;
   const inRange = mine.filter((e) => (e.end ?? now) > from && e.start < until);
   const total = secondsBetween(inRange, from, until, now);
   const sessions = inRange.length;
@@ -296,7 +305,7 @@ export default function MemberProfile({ memberId }) {
             <Segmented label="Period" value={range} onChange={setRange} options={RANGES} size="sm" />
           </div>
           <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">
-            <StatTile key={`t-${rangeKey}`} icon={Timer} tone="brand" label="Hours clocked" value={formatHours(total)} sub={`${sessions} clocking${sessions === 1 ? "" : "s"} · ${daysWorked} day${daysWorked === 1 ? "" : "s"}`} />
+            <StatTile key={`t-${rangeKey}`} icon={Timer} tone="brand" label={`Hours clocked · ${periodLabel}`} value={formatHours(total)} sub={`${sessions} clocking${sessions === 1 ? "" : "s"} · ${daysWorked} day${daysWorked === 1 ? "" : "s"}`} />
             <CompareCard key={`c-${rangeKey}`} name={member.name.split(" ")[0]} mine={daysWorked ? total / daysWorked : 0} team={teamAvg} />
           </div>
         </div>
@@ -504,7 +513,7 @@ const fromMonthKey = (key) => {
 
 /** Hours clocked per month: one bar each, with the hours on top. Click a month to show it in the numbers above. */
 function HoursChart({ entries, onPick }) {
-  const [span, setSpan] = useState("6"); // last 6 months by default
+  const [span, setSpan] = useState("3"); // last 3 months by default
   const [customFrom, setCustomFrom] = useState(() => monthKey(addMonths(Date.now(), -5)));
   const [customTo, setCustomTo] = useState(() => monthKey(Date.now()));
   const now = Date.now();
