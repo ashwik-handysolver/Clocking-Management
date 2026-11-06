@@ -26,7 +26,7 @@ const ClockContext = createContext(null);
 
 export function ClockProvider({ children }) {
   const { state, index, actions, me } = useStore();
-  const { toast } = useDialogs();
+  const { toast, confirm } = useDialogs();
   const running = runningEntryOf(state.entries, me.id);
   const [capturing, setCapturing] = useState(false);
   const [busyElsewhere, setBusyElsewhere] = useState(lockHeldElsewhere);
@@ -149,8 +149,12 @@ export function ClockProvider({ children }) {
         const mine = beat?.entryId === entry.id ? beat : null;
         // A recent check-in for this clocking means some tab is still sharing its screen: another device,
         // or another tab in THIS browser (its local lock can look stale when Chrome slows a background tab's
-        // timers, so the check-in is what counts). Only stop when nothing has checked in for a while.
-        const stillCheckingIn = mine && now - mine.beatAt < STALE_MS;
+        // timers, so the check-in is what counts). Only stop when nothing has checked in for a while...
+        // ...unless the sharing tab was in this browser and has said goodbye (closed or refreshed: it
+        // releases the lock on the way out). Then it's gone for sure, so stop now instead of waiting.
+        const lockNow = readLock();
+        const goneFromThisBrowser = mine?.deviceId === DEVICE_ID && !!lockNow?.released;
+        const stillCheckingIn = mine && now - mine.beatAt < STALE_MS && !goneFromThisBrowser;
         const justStarted = !mine && now - entry.start < STALE_MS; // its first check-in may not be saved yet
         if (stillCheckingIn || justStarted) return setBusyElsewhere(true);
         if (latest.current.running?.id !== entry.id || session.current) return; // changed while we waited
@@ -220,15 +224,25 @@ export function ClockProvider({ children }) {
     [actions, endCapture, toast],
   );
 
+  // You can always stop your own timer, wherever it's running. If another tab or device is sharing its
+  // screen for it, ask first; that tab then sees the timer has stopped and ends its screen sharing.
   const clockOut = useCallback(() => {
     if (elsewhere()) {
-      toast("Your timer is running in another tab or device. Stop it there.");
+      confirm({
+        title: "Stop your timer?",
+        message: "It's running in another tab or on another device. Stopping it here logs the time and ends screen sharing there too.",
+        confirmLabel: "Stop timer",
+        onConfirm: () => {
+          actions.stopTimer();
+          toast("Timer stopped and time logged");
+        },
+      });
       return false;
     }
     actions.stopTimer();
     endCapture();
     return true;
-  }, [actions, endCapture, toast]);
+  }, [actions, endCapture, toast, confirm]);
 
   const value = useMemo(() => ({ clockIn, clockOut, capturing, busyElsewhere }), [clockIn, clockOut, capturing, busyElsewhere]);
   return <ClockContext.Provider value={value}>{children}</ClockContext.Provider>;

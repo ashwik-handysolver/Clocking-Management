@@ -23,8 +23,8 @@ export function ClockButton({ subtask }) {
   return (
     <button
       type="button"
-      disabled={busyElsewhere || (!onThis && (done || !allowed))}
-      title={busyElsewhere ? "You're clocked in from another tab or device" : onThis ? "Stop timer" : !allowed ? "Only people assigned to this subtask can clock in" : done ? "Subtask is completed" : "Start timer"}
+      disabled={!onThis && (busyElsewhere || done || !allowed)}
+      title={onThis ? "Stop timer" : busyElsewhere ? "You're clocked in from another tab or device" : !allowed ? "Only people assigned to this subtask can clock in" : done ? "Subtask is completed" : "Start timer"}
       aria-label={onThis ? `Stop timer on ${subtask.name}` : `Start timer on ${subtask.name}`}
       onClick={async (e) => {
         e.stopPropagation();
@@ -96,8 +96,7 @@ export default function ClockCard({ subtask }) {
           <button
             type="button"
             onClick={stop}
-            disabled={busyElsewhere}
-            title={busyElsewhere ? "Stop it from the tab where you clocked in" : undefined}
+            title={busyElsewhere ? "Stop timer (running in another tab or device)" : undefined}
             className="disabled:cursor-not-allowed disabled:opacity-60 flex h-14 items-center justify-center gap-3 rounded-2xl bg-surface px-7 text-base font-extrabold text-brand-600 shadow-lg transition hover:scale-[1.02] active:scale-100"
           >
             <Square className="size-4" fill="currentColor" /> Stop
@@ -112,7 +111,7 @@ export default function ClockCard({ subtask }) {
           <p className="flex items-center gap-1.5 text-xs font-semibold text-white/85">
             {busyElsewhere ? (
               <>
-                <MonitorX className="size-3.5" /> Running in another tab or device. Stop it there.
+                <MonitorX className="size-3.5" /> Screen sharing is running in another tab or device.
               </>
             ) : (
               <>

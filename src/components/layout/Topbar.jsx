@@ -109,8 +109,7 @@ function TimerPill() {
       <button
         type="button"
         aria-label="Stop timer"
-        title={busyElsewhere ? "Stop it from the tab where you clocked in" : "Stop timer"}
-        disabled={busyElsewhere}
+        title={busyElsewhere ? "Stop timer (running in another tab or device)" : "Stop timer"}
         onClick={() => clockOut() && toast("Timer stopped and time logged")}
         className="grid size-8 place-items-center rounded-full bg-surface text-brand-600 shadow-sm transition hover:scale-105 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 sm:size-9"
       >
