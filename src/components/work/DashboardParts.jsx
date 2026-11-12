@@ -39,17 +39,18 @@ export function Hero({ name, title, children, greeting: greet = true, lead, deta
 }
 
 /** A glassy number inside the hero. */
-export function HeroStat({ label, value, live, sub }) {
+export function HeroStat({ label, value, live, sub, icon: Icon, iconClass }) {
   return (
-    <div className="rounded-2xl bg-white/10 px-4 py-2.5 ring-1 ring-white/15 backdrop-blur">
+    <div className="hero-stat h-full min-w-0 rounded-2xl bg-white/10 px-4 py-2.5 ring-1 ring-white/15 backdrop-blur">
       <p className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-white/65 uppercase">
         {live && <span className="size-2 animate-pulse-dot rounded-full bg-emerald-400" />}
         {label}
       </p>
-      <p className="text-xl font-extrabold tabular-nums">
+      <p className="flex items-center gap-1.5 text-xl font-extrabold tabular-nums">
+        {Icon && <Icon className={cx("size-5 shrink-0", iconClass)} aria-hidden />}
         <CountUp text={value} />
       </p>
-      {sub && <p className="text-[11px] font-semibold text-white/75">{sub}</p>}
+      {sub && <p className="text-[11px] leading-tight font-semibold text-white/75">{sub}</p>}
     </div>
   );
 }

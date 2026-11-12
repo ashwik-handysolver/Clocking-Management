@@ -289,3 +289,46 @@ export async function removeMember(memberId) {
   const { error } = await supabase.rpc("admin_remove_member", { p_member: memberId });
   if (error) throw error;
 }
+/* ---------- Client accounts (view-only) ---------- */
+
+/** The client access row of the signed-in account, or null for a team member. */
+export async function myClientAccess(authUserId) {
+  const rows = check(await supabase.from("client_access").select("*").eq("auth_user_id", authUserId).limit(1));
+  const r = rows[0];
+  return r ? { id: r.id, clientId: r.client_id, email: r.email } : null;
+}
+
+/**
+ * Everything a client account may see (the database only returns their own client's work,
+ * billable time and the people on it).
+ */
+export async function loadClientPortal() {
+  const [items, entries, holidays, team] = await Promise.all([
+    supabase.from("items").select("*").order("created_at"),
+    supabase.from("time_entries").select("*").order("start_at"),
+    supabase.from("holidays").select("*").order("day"),
+    supabase.rpc("client_team"),
+  ]);
+  return {
+    items: check(items).map(itemFrom),
+    entries: check(entries).map(entryFrom),
+    holidays: check(holidays).map((r) => ({ day: r.day, name: r.name })),
+    team: check(team).map((r) => ({ id: r.id, name: r.name, color: r.color, avatarUrl: r.avatar_url ?? "" })),
+  };
+}
+
+/** Admin: who has view-only access to a client. */
+export async function listClientAccess(clientId) {
+  const rows = check(await supabase.from("client_access").select("*").eq("client_id", clientId).order("created_at"));
+  return rows.map((r) => ({ id: r.id, email: r.email, signedUp: !!r.auth_user_id, createdAt: ms(r.created_at) }));
+}
+
+export async function grantClientAccess(clientId, email) {
+  const { error } = await supabase.rpc("admin_grant_client_access", { p_client: clientId, p_email: email });
+  if (error) throw error;
+}
+
+export async function revokeClientAccess(id) {
+  const { error } = await supabase.rpc("admin_revoke_client_access", { p_id: id });
+  if (error) throw error;
+}

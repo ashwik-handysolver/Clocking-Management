@@ -224,6 +224,99 @@
     animation-play-state: paused !important;
   }
 
+  /*
+   * The streak's fire (<Fire> in motion.jsx): it lights up from its base when the page loads and burns
+   * for a few seconds, then again while its tile is hovered. The flame stays still; small tongues of flame
+   * rise off it, its inside flickers brighter and dimmer, and sparks drift up.
+   */
+  .fire .fire-body {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+  }
+  .fire .fire-tongue,
+  .fire .fire-spark {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    opacity: 0;
+  }
+  /* Load: the flame lights up from its base, then burns for a few seconds. The flame itself never moves. */
+  .fire {
+    animation: fire-glow 0.8s ease-in-out 0.4s 4;
+  }
+  .fire .fire-body {
+    animation: fire-ignite 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .fire .fire-inner {
+    animation: fire-bright 0.35s ease-in-out 0.4s 9;
+  }
+  .fire .fire-core {
+    animation: fire-bright 0.25s ease-in-out 0.4s 12;
+  }
+  .fire .fire-tongue {
+    animation: fire-lick 0.7s ease-out 4;
+  }
+  .fire .fire-spark {
+    animation: fire-spark 1s ease-out 2;
+  }
+  /* Hover: keeps burning. The *-h keyframes are copies, so the burn restarts after it has stopped. */
+  .hero-stat:hover .fire {
+    animation: fire-glow-h 0.8s ease-in-out infinite;
+  }
+  .hero-stat:hover .fire .fire-inner {
+    animation: fire-bright-h 0.35s ease-in-out infinite;
+  }
+  .hero-stat:hover .fire .fire-core {
+    animation: fire-bright-h 0.25s ease-in-out infinite;
+  }
+  .hero-stat:hover .fire .fire-tongue {
+    animation: fire-lick-h 0.7s ease-out infinite;
+  }
+  .hero-stat:hover .fire .fire-spark {
+    animation: fire-spark-h 1s ease-out infinite;
+  }
+
+  @keyframes fire-ignite {
+    0% { transform: scale(0.4, 0); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  /* A tongue of flame leaves the top, rises a little and burns out. */
+  @keyframes fire-lick {
+    0% { transform: translateY(2px) scale(0.6, 0.4); opacity: 0; }
+    30% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-4px) scale(0.3, 0.7); opacity: 0; }
+  }
+  @keyframes fire-lick-h {
+    0% { transform: translateY(2px) scale(0.6, 0.4); opacity: 0; }
+    30% { transform: translateY(0) scale(1); opacity: 1; }
+    100% { transform: translateY(-4px) scale(0.3, 0.7); opacity: 0; }
+  }
+  @keyframes fire-bright {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.72; }
+  }
+  @keyframes fire-bright-h {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.72; }
+  }
+  @keyframes fire-spark {
+    0% { transform: translate(0, 0) scale(1); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(var(--dx, 0px), -9px) scale(0.3); opacity: 0; }
+  }
+  @keyframes fire-spark-h {
+    0% { transform: translate(0, 0) scale(1); opacity: 0; }
+    20% { opacity: 1; }
+    100% { transform: translate(var(--dx, 0px), -9px) scale(0.3); opacity: 0; }
+  }
+  @keyframes fire-glow {
+    0%, 100% { filter: drop-shadow(0 0 2px rgb(251 146 60 / 0.45)); }
+    50% { filter: drop-shadow(0 0 6px rgb(251 146 60 / 0.9)); }
+  }
+  @keyframes fire-glow-h {
+    0%, 100% { filter: drop-shadow(0 0 2px rgb(251 146 60 / 0.45)); }
+    50% { filter: drop-shadow(0 0 6px rgb(251 146 60 / 0.9)); }
+  }
+
   /* The line drawn across a completed name (see --animate-strike). */
   .strike-draw {
     background-image: linear-gradient(currentColor, currentColor);

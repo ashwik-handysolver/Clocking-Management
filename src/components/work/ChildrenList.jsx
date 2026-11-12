@@ -1,12 +1,13 @@
 import { useState } from "react";
-import { ChevronDown, ExternalLink, Folder, Pencil, Trash } from "lucide-react";
+import { ChevronDown, ExternalLink, Folder, Pencil, Plus, Trash } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { dueInfo, formatHours } from "../../lib/time";
 import { BILLING_LABEL, CHILD_TYPE, billingOf, statusChoices, TYPE_LABEL, assigneesOf, hasAssignee, isDone, isWork, progressOf } from "../../store/model";
-import { canChangeStatus, canDeleteItem, canEditDetails } from "../../store/permissions";
+import { canChangeStatus, canCreate, canDeleteItem, canEditDetails } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Segmented } from "../admin/AdminPage";
 import { useDialogs } from "../dialogs";
+import AddWizard from "../AddSubtaskWizard";
 import { TYPE_ICON } from "../ItemForm";
 import { Avatar, AvatarStack, Button, EmptyState, PillSelect, PriorityLabel, ProgressRing, STATUS_STYLE, StatusIcon, ADD_HINT, cx } from "../ui";
 import { Collapse, DoneName, DonePop } from "../motion";
@@ -22,6 +23,8 @@ export default function ChildrenList({ item, billing, seconds }) {
   const childType = CHILD_TYPE[item.type];
   // A task's subtasks are split into two tabs: ones you assigned and ones assigned to you.
   const [who, setWho] = useState("to");
+  const [adding, setAdding] = useState(false); // the Add subtask popup, with this task already picked
+  const { toast } = useDialogs();
   const subtasks = childType === "subtask";
   // A project's tasks are shown one billing category at a time (when `billing` is given).
   const byBilling = billing && childType === "task";
@@ -36,6 +39,7 @@ export default function ChildrenList({ item, billing, seconds }) {
         : !isDone(c) && (who === "all" || (who === "by" ? c.assignedBy === me.id : (c.assignees ?? []).includes(me.id)))),
   );
   const tabs = subtasks && (
+    <div className="flex flex-wrap items-center justify-between gap-2">
     <Segmented
       label="Subtasks"
       value={who}
@@ -47,9 +51,15 @@ export default function ChildrenList({ item, billing, seconds }) {
         ["done", doneCount ? `Completed (${doneCount})` : "Completed"],
       ]}
     />
+      {canCreate(me, "subtask") && (
+        <Button size="sm" variant="soft" icon={Plus} onClick={() => setAdding(true)}>
+          Add subtask
+        </Button>
+      )}
+      {adding && <AddWizard kind="subtask" contextId={item.id} onClose={() => setAdding(false)} toast={toast} />}
+    </div>
   );
   const label = (byBilling ? `${BILLING_LABEL[billing].toLowerCase()} ` : "") + TYPE_LABEL[childType].toLowerCase();
-  // Everything is added from the header's + button, so lists have no Add buttons of their own.
 
   if (!children.length) {
     return (

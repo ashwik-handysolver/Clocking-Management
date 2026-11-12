@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import {
-  Archive, ArrowLeft, CalendarCheck, Camera, CircleCheck, ListChecks, Mail, Pencil, Timer, Trash, TriangleAlert, UserRound,
+  Archive, ArrowLeft, CalendarCheck, Camera, CircleCheck, KeyRound, ListChecks, Mail, Pencil, Timer, Trash, TriangleAlert, UserRound,
 } from "lucide-react";
 import { navigate, openItem } from "../../lib/router";
 import { dueInfo, formatHours, todayKey } from "../../lib/time";
@@ -14,6 +14,7 @@ import { TYPE_ICON } from "../ItemForm";
 import { AvatarStack, Button, Card, IconChip, Modal, ProgressRing, StatusIcon, TONE, Watermark, cx } from "../ui";
 import { DoneName } from "../motion";
 import ChildrenList from "./ChildrenList";
+import ClientAccessDialog from "../admin/ClientAccessDialog";
 import ClientWork from "./ClientWork";
 import ClockCard from "./ClockCard";
 import WorkProperties, { Prop } from "./WorkProperties";
@@ -129,7 +130,7 @@ function Summary({ item, seconds }) {
       )}
 
       <div className="grid grid-cols-1 gap-2 rounded-3xl bg-stone-50 p-2 @md:grid-cols-2 @4xl:grid-cols-4">
-        <Stat icon={CircleCheck} color="emerald" label="Progress" value={`${prog.done}/${prog.total}`} sub="items completed" aside={<ProgressRing value={prog.pct} tone="green" />} />
+        <Stat icon={CircleCheck} color="emerald" label="Progress" value={`${prog.done}/${prog.total}`} aside={<ProgressRing value={prog.pct} tone="green" />} />
         <Stat icon={ListChecks} color="amber" label="Open" value={open} sub={`of ${prog.total} items`} />
         <Stat
           icon={overdue ? TriangleAlert : CalendarCheck}
@@ -178,6 +179,7 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
     return teamEntries.some((e) => ids.has(e.subtaskId));
   }, [index, item.id, teamEntries]);
   const isClient = item.type === "client";
+  const [accessOpen, setAccessOpen] = useState(false); // the Client access dialog
 
   // Your own time only (store/permissions.js).
   const seconds = useMemo(() => rollupSeconds(index, entries), [index, entries]);
@@ -204,6 +206,7 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
   return (
     // @container: everything inside lays out by this view's width, not the screen's.
     <div className="@container space-y-4">
+      {accessOpen && <ClientAccessDialog client={item} onClose={() => setAccessOpen(false)} />}
       <Card className="relative overflow-hidden p-2">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-br from-brand-50 via-brand-50/40 to-transparent" />
         <div className="pointer-events-none absolute -top-16 -right-12 size-56 rounded-full bg-brand-100/50" />
@@ -235,6 +238,12 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
               {(item.type === "task" || item.type === "subtask") && (
                 <Button size="sm" variant="soft" icon={Camera} onClick={() => navigate("screenshots", null, { [item.type]: item.id })}>
                   View screenshots
+                </Button>
+              )}
+              {/* Who from this client may sign in to the view-only client portal. */}
+              {isClient && isAdmin(me) && (
+                <Button size="sm" variant="soft" icon={KeyRound} onClick={() => setAccessOpen(true)}>
+                  Client access
                 </Button>
               )}
               {/* Clients and projects are managed by the admin, who archives them instead of deleting. */}

@@ -218,7 +218,7 @@ export default function AdminDashboard() {
           value={formatHours(billable)}
           sub={total ? `${Math.round((billable / total) * 100)}% of team time` : "No time yet"}
         />
-        <StatTile icon={CircleSlash} tone="sky" label="Non-billable this week" value={formatHours(total - billable)} sub="Internal and unbilled work" />
+        <StatTile icon={CircleSlash} tone="sky" label="Non-billable this week" value={formatHours(total - billable)} />
       </div>
 
       {/* Client hours (accordion) beside who's on the clock; same height on wide screens */}

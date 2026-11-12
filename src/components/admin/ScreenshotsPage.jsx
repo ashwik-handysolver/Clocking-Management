@@ -135,13 +135,14 @@ export default function ScreenshotsPage() {
     let alive = true;
     setShots(null);
     setError("");
-    listSnapshots({ memberId: memberId || undefined, from: fromDateKey(from), to: addDays(fromDateKey(to), 1) })
+    const all = range === "all"; // every screenshot, no date limit
+    listSnapshots({ memberId: memberId || undefined, from: all ? undefined : fromDateKey(from), to: all ? undefined : addDays(fromDateKey(to), 1) })
       .then((list) => alive && setShots(list))
       .catch((err) => alive && (setError(err.message ?? String(err)), setShots([])));
     return () => {
       alive = false;
     };
-  }, [memberId, from, to]);
+  }, [memberId, from, to, range]);
 
   // Subtask, project and client come from the clocking the screenshot was taken during.
   const entryById = useMemo(() => new Map(teamEntries.map((e) => [e.id, e])), [teamEntries]);
@@ -264,6 +265,7 @@ export default function ScreenshotsPage() {
               ["today", "Today"],
               ["yesterday", "Yesterday"],
               ["week", "This week"],
+              ["all", "All"],
               ["custom", "Custom"],
             ]}
           />
@@ -299,10 +301,10 @@ export default function ScreenshotsPage() {
             </Field>
           )}
           <Field label="From">
-            <input type="date" value={from} max={to} onChange={resetPage((v) => (setFrom(v), setRange("custom")))} className={inputClass} />
+            <input type="date" value={range === "all" ? "" : from} max={to} onChange={resetPage((v) => (setFrom(v), setRange("custom")))} className={inputClass} />
           </Field>
           <Field label="To">
-            <input type="date" value={to} min={from} onChange={resetPage((v) => (setTo(v), setRange("custom")))} className={inputClass} />
+            <input type="date" value={range === "all" ? "" : to} min={from} onChange={resetPage((v) => (setTo(v), setRange("custom")))} className={inputClass} />
           </Field>
         </div>
       </Card>

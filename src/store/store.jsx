@@ -1,8 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { Suspense, createContext, lazy, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import AuthPage from "../components/AuthPage";
 import { navigate } from "../lib/router";
 import { openedFromRecoveryLink, supabase, supabaseConfigured } from "../lib/supabase";
-import { loadAll, pushChanges, subscribeAll } from "./db";
+import { loadAll, myClientAccess, pushChanges, subscribeAll } from "./db";
+
+// Client accounts get their own view-only app, loaded only for them.
+const ClientPortal = lazy(() => import("../components/client/ClientPortal"));
 import { formatHours, formatTime } from "../lib/time";
 import { BILLING, billingOf, buildIndex, isArchived, descendants, dueProblem, entrySeconds, hasAssignee, uid } from "./model";
 import {
@@ -235,8 +238,9 @@ const EMPTY = { members: [], items: [], entries: [], activity: [], audit: [], ho
  */
 export function StoreProvider({ children }) {
   const [state, dispatch] = useReducer(reducer, EMPTY);
-  const [status, setStatus] = useState(supabaseConfigured ? "loading" : "unconfigured"); // loading | signedOut | noMember | ready | error | unconfigured
+  const [status, setStatus] = useState(supabaseConfigured ? "loading" : "unconfigured"); // loading | signedOut | noMember | client | ready | error | unconfigured
   const [problem, setProblem] = useState("");
+  const [clientAccess, setClientAccess] = useState(null); // signed in as a client (view-only): { clientId, email }
   const [recovering, setRecovering] = useState(openedFromRecoveryLink); // signed in from a reset link, new password not set yet
   const latest = useRef(state);
   latest.current = state;
@@ -262,8 +266,18 @@ export function StoreProvider({ children }) {
       const member = data.members.find((m) => m.authUserId === authId.current);
       // Hidden accounts (e.g. the starter "Admin") never show anywhere in the app, except to themselves.
       data.members = data.members.filter((m) => !m.hidden || m === member);
+      if (!member) {
+        // Not on the team: nothing goes into the team app's store (it needs a signed-in member).
+        // A client account opens the client portal instead, which loads its own data.
+        dispatch({ type: "hydrate", state: EMPTY });
+        const access = await myClientAccess(authId.current);
+        if (access) {
+          setClientAccess(access);
+          return setStatus("client");
+        }
+        return setStatus("noMember");
+      }
       dispatch({ type: "hydrate", state: data });
-      if (!member) return setStatus("noMember");
       dispatch({ type: "signedIn", memberId: member.id });
       ready.current = true;
       setStatus("ready");
@@ -423,7 +437,7 @@ export function StoreProvider({ children }) {
   const index = useMemo(() => buildIndex(items), [items]);
   const audit = useMemo(() => (isAdmin(me) ? state.audit ?? [] : []), [state.audit, me]);
   // `entries` is always your own time; `teamEntries` is everything you may see (everyone's, for the admin).
-  const entries = useMemo(() => state.entries.filter((e) => e.memberId === me.id), [state.entries, me]);
+  const entries = useMemo(() => state.entries.filter((e) => e.memberId === me?.id), [state.entries, me]);
   const teamEntries = useMemo(() => state.entries.filter((e) => canSeeEntry(me, e)), [state.entries, me]);
   const activity = useMemo(() => state.activity.filter((a) => canSeeActivity(me, a)), [state.activity, me]);
 
@@ -434,6 +448,12 @@ export function StoreProvider({ children }) {
 
   if (recovering && status !== "signedOut" && status !== "unconfigured") return <AuthPage mode="recovery" onRecovered={() => setRecovering(false)} />;
   if (status === "signedOut") return <AuthPage />;
+  if (status === "client" && clientAccess)
+    return (
+      <Suspense fallback={<LoadingSkeleton />}>
+        <ClientPortal access={clientAccess} />
+      </Suspense>
+    );
   if (status !== "ready" || !me) return <StoreStatus status={status} problem={problem} onRetry={reload} />;
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

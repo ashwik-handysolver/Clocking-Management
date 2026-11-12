@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Camera, Clock, ListChecks, PencilLine, Timer } from "lucide-react";
+import { ArrowRight, Camera, Clock, Flame, ListChecks, PencilLine } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { navigate, openItem } from "../../lib/router";
-import { DAY, addDays, formatDate, formatHours, formatTime, startOfDay, startOfWeek } from "../../lib/time";
-import { ancestry, assigneesOf, entrySeconds, isDone, pathLabel } from "../../store/model";
+import { DAY, addDays, formatDate, formatHours, formatTime, startOfDay, startOfWeek, toDateKey } from "../../lib/time";
+import { assigneesOf, entrySeconds, isDone, pathLabel } from "../../store/model";
 import { creatorOf, isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import AdminDashboard from "./AdminDashboard";
@@ -12,7 +12,7 @@ import { loadClientHoursEntries } from "../../store/db";
 import { Hero, HeroStat } from "./DashboardParts";
 import { Button, Card, EmptyState, IconChip, StatusIcon, cx } from "../ui";
 import { Segmented as SharedSegmented } from "../admin/AdminPage";
-import { DoneName, useReveal } from "../motion";
+import { DoneName, Fire, useReveal } from "../motion";
 
 /*
  * Personal dashboard: only the signed-in user's own time (store/permissions.js).
@@ -108,79 +108,22 @@ function WeekChart({ entries, now }) {
   );
 }
 
-/** Time split by client, then project, for a date range. */
-function TimeByClient({ entries, now }) {
-  const { index } = useStore();
-  const [range, setRange] = useState("week");
-  const from = range === "week" ? startOfWeek(now) : new Date(new Date(now).getFullYear(), new Date(now).getMonth(), 1).getTime();
-
-  const clients = useMemo(() => {
-    const byClient = new Map();
-    for (const e of entries) {
-      const secs = secondsBetween([e], from, now + 1, now);
-      if (!secs) continue;
-      const chain = ancestry(index, e.subtaskId);
-      const client = chain.find((x) => x.type === "client");
-      const project = chain.find((x) => x.type === "project");
-      if (!client) continue;
-      const c = byClient.get(client.id) ?? { item: client, secs: 0, projects: new Map() };
-      c.secs += secs;
-      if (project) {
-        const p = c.projects.get(project.id) ?? { item: project, secs: 0 };
-        p.secs += secs;
-        c.projects.set(project.id, p);
-      }
-      byClient.set(client.id, c);
-    }
-    return [...byClient.values()]
-      .map((c) => ({ ...c, projects: [...c.projects.values()].sort((a, b) => b.secs - a.secs) }))
-      .sort((a, b) => b.secs - a.secs);
-  }, [entries, index, from, now]);
-
-  const total = clients.reduce((s, c) => s + c.secs, 0);
-  const max = clients[0]?.secs ?? 1;
-
-  return (
-    <Card className="bg-gradient-to-br from-brand-50/70 via-surface to-surface p-5">
-      <SectionTitle icon={Timer} title="Where your time went">
-        <Segmented label="Range" value={range} onChange={setRange} options={[["week", "This week"], ["month", "This month"]]} />
-      </SectionTitle>
-      {!clients.length ? (
-        <p className="py-8 text-center text-sm text-stone-400">No time logged {range === "week" ? "this week" : "this month"} yet.</p>
-      ) : (
-        <ul className="space-y-4">
-          {clients.map((c) => (
-            <li key={c.item.id}>
-              <button type="button" onClick={() => openItem(c.item.id)} className="group mb-1.5 flex w-full items-baseline justify-between gap-2 text-left">
-                <span className="truncate text-sm font-bold text-stone-800 group-hover:text-brand-700">{c.item.name}</span>
-                <span className="shrink-0 text-sm font-bold text-stone-900 tabular-nums">
-                  {formatHours(c.secs)} <span className="font-medium text-stone-400">· {Math.round((c.secs / total) * 100)}%</span>
-                </span>
-              </button>
-              <div className="h-2.5 rounded-full bg-stone-100" title={`${c.item.name}: ${formatHours(c.secs)}`}>
-                <div className="h-full origin-left animate-grow-x rounded-full bg-brand-500" style={{ width: `${(c.secs / max) * 100}%` }} />
-              </div>
-              {c.projects.length > 1 && (
-                <ul className="mt-2 space-y-1.5 pl-3">
-                  {c.projects.map((p) => (
-                    <li key={p.item.id} className="flex items-center gap-3 text-xs">
-                      <button type="button" onClick={() => openItem(p.item.id)} className="w-32 shrink-0 truncate text-left text-stone-500 hover:text-brand-700">
-                        {p.item.name}
-                      </button>
-                      <div className="h-1.5 flex-1 rounded-full bg-stone-100" title={`${p.item.name}: ${formatHours(p.secs)}`}>
-                        <div className="h-full origin-left animate-grow-x rounded-full bg-brand-300" style={{ width: `${(p.secs / max) * 100}%` }} />
-                      </div>
-                      <span className="w-14 shrink-0 text-right font-semibold text-stone-600 tabular-nums">{formatHours(p.secs)}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
-  );
+/**
+ * Workdays in a row (Mon–Fri, not a holiday) with any time clocked, counting back from today.
+ * Today only adds to the streak once you've clocked in; an empty morning doesn't break it.
+ */
+function workdayStreak(entries, holidays, now) {
+  const days = new Set(entries.map((e) => toDateKey(e.start)));
+  let streak = 0;
+  let day = startOfDay(now);
+  for (let i = 0; i < 3660; i++, day = addDays(day, -1)) {
+    const key = toDateKey(day);
+    const weekday = new Date(day).getDay();
+    if (weekday === 0 || weekday === 6 || holidays.has(key)) continue; // days off don't count either way
+    if (days.has(key)) streak++;
+    else if (i > 0) break; // today without time yet: keep looking back
+  }
+  return streak;
 }
 
 const RECENT_SUBTASKS = 7;
@@ -337,7 +280,7 @@ function useClientHoursEntries(ownEntries) {
 }
 
 function PersonalDashboard() {
-  const { entries, me } = useStore(); // your own time only
+  const { entries, me, state } = useStore(); // your own time only
   const running = entries.some((e) => e.end == null);
   const now = useNow(running, 30_000);
   const revealRef = useReveal(); // cards appear as you scroll to them
@@ -349,16 +292,22 @@ function PersonalDashboard() {
   const lastWeekSoFar = secondsBetween(entries, addDays(weekStart, -7), now - 7 * DAY, now);
   const today = secondsBetween(entries, startOfDay(now), now + 1, now);
   const delta = thisWeek - lastWeekSoFar;
+  const holidays = useMemo(() => new Set((state.holidays ?? []).map((h) => h.day)), [state.holidays]);
+  const streak = useMemo(() => workdayStreak(entries, holidays, now), [entries, holidays, now]);
 
   return (
     <div ref={revealRef} className="@container reveal space-y-4">
       <Hero name={me.name.split(" ")[0]} title="Here's your week so far">
+        {/* Same-size tiles, whatever each one holds */}
+        <div className="grid w-full grid-cols-3 items-stretch gap-2.5 @3xl:w-[30rem]">
         <HeroStat label="Today" value={formatHours(today)} live={running} />
         <HeroStat
           label="This week"
           value={formatHours(thisWeek)}
           sub={lastWeekSoFar || thisWeek ? `${delta >= 0 ? "▲" : "▼"} ${formatHours(Math.abs(delta))} ${delta >= 0 ? "more" : "less"} than last week` : undefined}
         />
+        <HeroStat label="Streak" icon={streak ? Fire : Flame} iconClass={streak ? "" : "text-white/40"} value={`${streak} ${streak === 1 ? "day" : "days"}`} />
+        </div>
       </Hero>
 
       <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
@@ -373,9 +322,6 @@ function PersonalDashboard() {
         <ClientCyclesCard entries={clientEntries} now={now} />
       </div>
 
-      <div>
-        <TimeByClient entries={entries} now={now} />
-      </div>
     </div>
   );
 }

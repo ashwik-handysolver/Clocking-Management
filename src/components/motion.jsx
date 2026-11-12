@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { cx, useInViewOnce } from "./ui";
 
 /*
@@ -193,4 +193,53 @@ export async function foldAway(itemId) {
     anim.cancel();
     el.style.overflow = overflow;
   }, 2000);
+}
+
+const SPARKS = [
+  { cx: 9.5, cy: 7, dx: "-2px", delay: "0.5s" },
+  { cx: 14.5, cy: 6, dx: "2px", delay: "0.85s" },
+  { cx: 12, cy: 4, dx: "-1px", delay: "1.2s" },
+];
+
+// Small tongues of flame that rise off the top and sides: [x, top, delay].
+const TONGUES = [
+  [12, -1, "0.4s"],
+  [8.6, 5, "0.6s"],
+  [15.6, 7, "0.8s"],
+];
+const tongue = (x, y) => `M${x} ${y}C${x + 0.9} ${y + 2} ${x + 1.4} ${y + 3} ${x + 1.4} ${y + 4.2}A1.4 1.4 0 0 1 ${x - 1.4} ${y + 4.2}C${x - 1.4} ${y + 3} ${x - 0.9} ${y + 2} ${x} ${y}Z`;
+
+/**
+ * A burning flame: an orange outer flame, a yellow inner one and a bright core. The flame stays still;
+ * tongues of flame rise off it, its inside flickers and sparks drift up. It lights up when it first shows
+ * and burns while its `.hero-stat` tile is hovered (styles: "streak's fire" in index.css).
+ */
+export function Fire({ className }) {
+  const id = useId().replace(/[^a-zA-Z0-9]/g, "");
+  return (
+    <svg viewBox="0 0 24 24" className={cx("fire overflow-visible", className)} aria-hidden>
+      <defs>
+        <linearGradient id={`${id}o`} x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="#dc2626" />
+          <stop offset="0.55" stopColor="#f97316" />
+          <stop offset="1" stopColor="#fb923c" />
+        </linearGradient>
+        <linearGradient id={`${id}i`} x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stopColor="#f59e0b" />
+          <stop offset="1" stopColor="#fde047" />
+        </linearGradient>
+      </defs>
+      {TONGUES.map(([x, y, delay]) => (
+        <path key={x} className="fire-tongue" fill="#fb923c" d={tongue(x, y)} style={{ animationDelay: delay }} />
+      ))}
+      <g className="fire-body">
+        <path className="fire-outer" fill={`url(#${id}o)`} d="M12 1C12.8 4.6 18.5 8 18.5 15A6.5 6.5 0 0 1 5.5 15C5.5 11.6 7.2 9.4 8.8 8C8.9 10 9.8 11.4 11 12C10.4 8.2 11.2 4.2 12 1Z" />
+        <path className="fire-inner" fill={`url(#${id}i)`} d="M12.5 9.5C13.6 12 16 13.6 16 17A4 4 0 0 1 8 17C8 15 9.3 13.6 10.2 12.8C10.4 14 11 14.8 11.8 15.2C11.6 13.2 11.9 11.2 12.5 9.5Z" />
+        <ellipse className="fire-core" cx="12" cy="18.3" rx="1.8" ry="2.4" fill="#fef9c3" />
+      </g>
+      {SPARKS.map((s) => (
+        <circle key={s.cx} className="fire-spark" cx={s.cx} cy={s.cy} r="0.8" fill="#fdba74" style={{ "--dx": s.dx, animationDelay: s.delay }} />
+      ))}
+    </svg>
+  );
 }

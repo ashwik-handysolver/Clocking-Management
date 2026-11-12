@@ -36,6 +36,7 @@ function groupOf(sub, runningId) {
 const VIEWS = [
   { key: "to", label: "Assigned to me" },
   { key: "by", label: "Assigned by me" },
+  { key: "done", label: "Completed" },
 ];
 
 /** Home page for everyone: the subtasks assigned to you (with one-click clock-in), or the ones you handed out. */
@@ -43,25 +44,30 @@ export default function MyWork() {
   const { items, index, entries, me, actions, memberById } = useStore();
   const [view, setView] = useState("to");
   const [query, setQuery] = useState("");
-  const [showDone, setShowDone] = useState(false);
   const running = runningEntryOf(entries, me.id);
   const now = useNow(Boolean(running), 30_000);
   const seconds = useMemo(() => rollupSeconds(index, entries), [index, entries]);
   const byMe = view === "by";
+  const doneView = view === "done"; // finished subtasks you were on or handed out
 
-  const mine = items.filter(
-    (i) => i.type === "subtask" && (byMe ? i.assignedBy === me.id && assigneesOf(i).some((id) => id !== me.id) : assigneesOf(i).includes(me.id)),
-  );
+  const assignedToMe = (i) => assigneesOf(i).includes(me.id);
+  const assignedByMe = (i) => i.assignedBy === me.id && assigneesOf(i).some((id) => id !== me.id);
+  const mine = items.filter((i) => i.type === "subtask" && (byMe ? assignedByMe(i) : assignedToMe(i)));
+  // Open work on the first two tabs, finished work on Completed.
+  const list = doneView
+    ? items.filter((i) => i.type === "subtask" && isDone(i) && (assignedToMe(i) || assignedByMe(i)))
+    : mine.filter((i) => !isDone(i));
   const q = query.trim().toLowerCase();
   const namesOf = (s) => assigneesOf(s).map((id) => memberById.get(id)?.name ?? "").join(" ").toLowerCase();
-  const matches = mine.filter(
-    (s) => !q || s.name.toLowerCase().includes(q) || pathLabel(index, s.id).toLowerCase().includes(q) || (byMe && namesOf(s).includes(q)),
+  const matches = list.filter(
+    (s) => !q || s.name.toLowerCase().includes(q) || pathLabel(index, s.id).toLowerCase().includes(q) || ((byMe || doneView) && namesOf(s).includes(q)),
   );
 
   const groups = new Map(GROUPS.map((g) => [g.key, []]));
-  for (const s of matches) groups.get(groupOf(s, byMe ? null : running?.subtaskId)).push(s);
-  for (const list of groups.values())
-    list.sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)); // no due date → last
+  for (const s of matches) groups.get(groupOf(s, byMe || doneView ? null : running?.subtaskId)).push(s);
+  groups.get("done").sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)); // newest first
+  for (const [key, group] of groups)
+    if (key !== "done") group.sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)); // no due date → last
 
   const open = mine.filter((s) => !isDone(s)).length;
   const overdue = mine.filter((s) => !isDone(s) && (dueInfo(s.due).days ?? 0) < 0).length;
@@ -106,27 +112,25 @@ export default function MyWork() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={byMe ? "Search by subtask or person…" : "Search your subtasks…"}
+              placeholder={byMe || doneView ? "Search by subtask or person…" : "Search your subtasks…"}
               className="h-10 w-full rounded-2xl bg-stone-100 pr-3 pl-10 text-sm outline-none placeholder:text-stone-400 focus:bg-surface focus:ring-2 focus:ring-brand-500"
             />
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-xs font-semibold text-stone-500">
-            <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} className="accent-brand-500" />
-            Show completed
-          </label>
         </div>
 
-        {!mine.length ? (
-          byMe ? (
+        {!list.length ? (
+          doneView ? (
+            <EmptyState icon={CircleCheck} title="Nothing completed yet" />
+          ) : byMe ? (
             <EmptyState icon={UserRoundCheck} title="You haven't assigned anything" />
           ) : (
-            <EmptyState icon={ListTodo} title="Nothing assigned to you" />
+            <EmptyState icon={ListTodo} title={mine.length ? "Nothing open right now" : "Nothing assigned to you"} />
           )
         ) : !matches.length ? (
           <EmptyState icon={Search} title="No matches" />
         ) : (
           <div className="space-y-5">
-            {GROUPS.filter((g) => groups.get(g.key).length && (g.key !== "done" || showDone)).map((g) => (
+            {GROUPS.filter((g) => groups.get(g.key).length).map((g) => (
               <section key={g.key}>
                 <h2 className={cx("mb-2 flex items-center gap-2 px-1 text-xs font-extrabold tracking-widest uppercase", g.key === "overdue" ? "text-red-500" : "text-stone-400")}>
                   {g.label}
@@ -134,7 +138,7 @@ export default function MyWork() {
                 </h2>
                 <ul className="space-y-1.5">
                   {groups.get(g.key).map((s) => (
-                    <Row key={s.id} sub={s} byMe={byMe} secs={seconds.get(s.id) ?? 0} onStatus={(status) => actions.updateItem(s.id, { status })} />
+                    <Row key={s.id} sub={s} byMe={byMe || (doneView && !assignedToMe(s))} secs={seconds.get(s.id) ?? 0} onStatus={(status) => actions.updateItem(s.id, { status })} />
                   ))}
                 </ul>
               </section>
