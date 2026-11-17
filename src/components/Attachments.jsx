@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileText, Loader2, Paperclip } from "lucide-react";
+import { FileText, Loader2, Lock, Paperclip } from "lucide-react";
 import { attachmentUrls, uploadAttachment } from "../store/db";
 import { cx } from "./ui";
 
@@ -129,9 +129,14 @@ export function RichDescription({ text, className }) {
   const paths = parts.filter((p) => p.path).map((p) => p.path);
   const key = paths.join("|");
   const [urls, setUrls] = useState(new Map());
+  const [loaded, setLoaded] = useState(false); // links fetched: a missing one means you're not allowed to see it
   useEffect(() => {
     let live = true;
-    if (paths.length) attachmentUrls(paths).then((m) => live && setUrls(m)).catch(() => {});
+    if (paths.length)
+      attachmentUrls(paths)
+        .then((m) => live && setUrls(m))
+        .catch(() => live && setUrls(new Map()))
+        .finally(() => live && setLoaded(true));
     return () => {
       live = false;
     };
@@ -143,7 +148,15 @@ export function RichDescription({ text, className }) {
         if (!p.path) return <span key={i}>{p.text.replace(/^\n|\n$/g, "")}</span>;
         const url = urls.get(p.path);
         const kind = kindOf(p.name);
-        if (!url) return <span key={i} className="my-2 block h-24 w-40 animate-pulse rounded-xl bg-stone-100" />;
+        if (!url && !loaded) return <span key={i} className="my-2 block h-24 w-40 animate-pulse rounded-xl bg-stone-100" />;
+        // Only the subtask's people (and admins) can open its attachments.
+        if (!url)
+          return (
+            <span key={i} className="my-2 flex w-fit items-center gap-2 rounded-xl bg-stone-50 px-3 py-2 text-[13px] text-stone-500 ring-1 ring-stone-900/5">
+              <Lock className="size-3.5" />
+              {p.name} · visible to assignees only
+            </span>
+          );
         if (kind === "image")
           return (
             <a key={i} href={url} target="_blank" rel="noreferrer" className="my-2 block w-fit">
