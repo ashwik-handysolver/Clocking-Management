@@ -14,6 +14,7 @@ import { TYPE_ICON } from "../ItemForm";
 import { AvatarStack, Button, Card, IconChip, Modal, ProgressRing, StatusIcon, TONE, Watermark, cx } from "../ui";
 import { DoneName } from "../motion";
 import ChildrenList from "./ChildrenList";
+import { RichDescription } from "../Attachments";
 import ClientAccessDialog from "../admin/ClientAccessDialog";
 import ClientWork from "./ClientWork";
 import ClockCard from "./ClockCard";
@@ -267,7 +268,7 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
               <h1 className={cx("text-[28px] leading-tight font-extrabold tracking-tight break-words text-stone-900", isDone(item) && "!text-stone-400")}>
                 <DoneName item={item}>{item.name}</DoneName>
               </h1>
-              {item.description && <p className="mt-2 max-w-2xl text-sm leading-relaxed whitespace-pre-wrap text-stone-500">{item.description}</p>}
+              {item.description && <RichDescription text={item.description} className="mt-2 max-w-2xl leading-relaxed text-stone-500" />}
             </div>
             {/* Everything is added from the header's + button. */}
           </div>

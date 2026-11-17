@@ -10,6 +10,7 @@ import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { Avatar, Card, EmptyState, Field, Popover, Select, cx, inputClass } from "../ui";
 import { AdminPage, Pager, Segmented } from "./AdminPage";
+import RangeArrows from "../RangeArrows";
 
 /*
  * Screenshots (admin only): filter by client, team member and date range, or open it for one task
@@ -38,10 +39,6 @@ function spread(list, count) {
 function rangeFor(key, now = Date.now()) {
   const today = toDateKey(now);
   if (key === "today") return [today, today];
-  if (key === "yesterday") {
-    const y = toDateKey(addDays(fromDateKey(today), -1));
-    return [y, y];
-  }
   if (key === "week") return [toDateKey(startOfWeek(now)), today];
   return null;
 }
@@ -262,13 +259,23 @@ export default function ScreenshotsPage() {
             value={range}
             onChange={pickRange}
             options={[
-              ["today", "Today"],
-              ["yesterday", "Yesterday"],
-              ["week", "This week"],
+              ["today", "Day"],
+              ["week", "Week"],
               ["all", "All"],
-              ["custom", "Custom"],
             ]}
           />
+          {(range === "today" ? "day" : range === "week" ? "week" : null) && (
+            <RangeArrows
+              kind={range === "today" ? "day" : range === "week" ? "week" : null}
+              from={from}
+              to={to}
+              onStep={([f, t]) => {
+                setFrom(f);
+                setTo(t);
+                setPage(0);
+              }}
+            />
+          )}
         </div>
         <div className={cx("grid gap-3 @lg:grid-cols-2", admin ? "@4xl:grid-cols-5" : "@3xl:grid-cols-4")}>
           <Field label="Client">

@@ -3,11 +3,11 @@ import { Camera, Clock, Eye, FolderKanban, LayoutDashboard, ListChecks, LogOut }
 import { navigate, useRoute } from "../../lib/router";
 import { supabase } from "../../lib/supabase";
 import { formatDate, formatHours, fromDateKey, todayKey } from "../../lib/time";
-import { cycleHistory, cycleStats } from "../../store/clientHours";
+import { cycleHistory } from "../../store/clientHours";
 import { loadClientPortal } from "../../store/db";
-import { buildIndex, clientCycle, isDone, pathLabel, progressOf, subtaskIdsUnder } from "../../store/model";
+import { buildIndex, pathLabel, progressOf, subtaskIdsUnder } from "../../store/model";
 import { Avatar, Button, Card, EmptyState, IconChip, ProgressBar, cx } from "../ui";
-import { Hero, HeroStat } from "../work/DashboardParts";
+import { Hero } from "../work/DashboardParts";
 import { HoursPage, ScreenshotsPage, WorkPage, secondsIn } from "./ClientPages";
 
 /*
@@ -186,26 +186,10 @@ export function SectionTitle({ icon, title, children }) {
 function Overview({ client, index, entries, team, holidays, name }) {
   const now = Date.now();
   const today = todayKey();
-  const cycle = clientCycle(client, today);
-  const stats = cycle ? cycleStats({ cycle, entries, index, holidays, now, today }) : null;
-  const d = new Date(now);
-  const monthSecs = secondsIn(entries, new Date(d.getFullYear(), d.getMonth(), 1).getTime(), now + 1, now);
-  const subtasks = [...index.byId.values()].filter((i) => i.type === "subtask");
-  const done = subtasks.filter(isDone).length;
 
   return (
     <>
-      <Hero name={name.split(" ")[0]} title={`Here's the latest on ${client.name}`}>
-        <div className="grid w-full grid-cols-3 items-stretch gap-2.5 @3xl:w-[32rem]">
-          {stats ? (
-            <HeroStat label="This cycle" value={formatHours(stats.used)} sub={`of ${cycle.hours}h`} />
-          ) : (
-            <HeroStat label="All time" value={formatHours(secondsIn(entries, 0, now + 1, now))} />
-          )}
-          <HeroStat label="This month" value={formatHours(monthSecs)} />
-          <HeroStat label="Subtasks done" value={`${done}/${subtasks.length}`} />
-        </div>
-      </Hero>
+      <Hero name={name.split(" ")[0]} title={`Here's the latest on ${client.name}`} />
 
       <HoursChart client={client} index={index} entries={entries} now={now} today={today} />
 

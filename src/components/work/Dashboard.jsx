@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Camera, Clock, Flame, ListChecks, PencilLine } from "lucide-react";
+import { ArrowRight, Camera, ChevronLeft, ChevronRight, Clock, Flame, ListChecks, PencilLine } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { navigate, openItem } from "../../lib/router";
-import { DAY, addDays, formatDate, formatHours, formatTime, startOfDay, startOfWeek, toDateKey } from "../../lib/time";
+import { addDays, formatDate, formatHours, formatTime, fromDateKey, startOfDay, startOfWeek, toDateKey } from "../../lib/time";
 import { assigneesOf, entrySeconds, isDone, pathLabel } from "../../store/model";
 import { creatorOf, isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
@@ -10,7 +10,7 @@ import AdminDashboard from "./AdminDashboard";
 import ClientCyclesCard from "./ClientCyclesCard";
 import { loadClientHoursEntries } from "../../store/db";
 import { Hero, HeroStat } from "./DashboardParts";
-import { Button, Card, EmptyState, IconChip, StatusIcon, cx } from "../ui";
+import { Button, Card, EmptyState, IconChip, StatusIcon, cx, inputClass } from "../ui";
 import { Segmented as SharedSegmented } from "../admin/AdminPage";
 import { DoneName, Fire, useReveal } from "../motion";
 
@@ -48,29 +48,94 @@ function SectionTitle({ icon, title, children }) {
   );
 }
 
-/** Hours per day for one week, as bars. Hovering a bar shows its exact value. */
+const MAX_CUSTOM_DAYS = 92; // a custom range is cut to about three months so the bars stay readable
+
+/** Working days (Mon–Fri) from `first` to `last` (inclusive), as chart slots. */
+function workingDaysBetween(first, last, short) {
+  const out = [];
+  for (let day = startOfDay(first); day <= last && out.length < MAX_CUSTOM_DAYS; day = addDays(day, 1)) {
+    const wd = new Date(day).getDay();
+    if (wd === 0 || wd === 6) continue;
+    out.push({
+      start: day,
+      label: short ? DAY_NAMES[wd - 1] : String(new Date(day).getDate()),
+      name: formatDate(day, { weekday: "short", day: "numeric", month: "short" }),
+    });
+  }
+  return out;
+}
+
+/** Hours per working day for a week, a month or any dates, as bars. Hovering a bar shows its exact value. */
 function WeekChart({ entries, now }) {
-  const [which, setWhich] = useState("this");
-  const weekStart = which === "this" ? startOfWeek(now) : addDays(startOfWeek(now), -7);
-  const todayIdx = which === "this" ? Math.round((startOfDay(now) - weekStart) / DAY) : -1;
-  const days = DAY_NAMES.map((_, i) => secondsBetween(entries, addDays(weekStart, i), addDays(weekStart, i + 1), now));
+  const [mode, setMode] = useState("week"); // week | month | custom
+  const [offset, setOffset] = useState(0); // weeks or months back from the current one
+  const [from, setFrom] = useState(() => toDateKey(startOfWeek(now)));
+  const [to, setTo] = useState(() => toDateKey(now));
+  const [hover, setHover] = useState(null);
+  const pickMode = (m) => {
+    setMode(m);
+    setOffset(0);
+  };
+
+  // The period on show, and what to call it.
+  let first, last, title;
+  if (mode === "week") {
+    first = addDays(startOfWeek(now), offset * 7);
+    last = addDays(first, 4);
+    title = offset === 0 ? "This week" : offset === -1 ? "Last week" : `${formatDate(first)} – ${formatDate(last)}`;
+  } else if (mode === "month") {
+    const d = new Date(now);
+    first = new Date(d.getFullYear(), d.getMonth() + offset, 1).getTime();
+    last = new Date(d.getFullYear(), d.getMonth() + offset + 1, 0).getTime();
+    title = formatDate(first, { month: "long", year: "numeric" });
+  } else {
+    first = fromDateKey(from);
+    last = fromDateKey(to);
+    title = from === to ? formatDate(first, { weekday: "long", day: "numeric", month: "short" }) : `${formatDate(first)} – ${formatDate(last)}`;
+  }
+  const weekdays = mode === "week" || (mode === "custom" && last - first < 7 * 24 * 3600 * 1000);
+  const slots = workingDaysBetween(first, last, weekdays);
+  const todayIdx = slots.findIndex((x) => x.start === startOfDay(now));
+  const days = slots.map((x) => secondsBetween(entries, x.start, addDays(x.start, 1), now));
   const max = Math.max(...days, 4 * 3600); // keep short days from looking full
   const total = days.reduce((a, b) => a + b, 0);
-  const [hover, setHover] = useState(null);
+  const gap = slots.length > 10 ? "gap-0.5 sm:gap-1" : "gap-2 sm:gap-4";
+  const atNow = offset >= 0; // no stepping into the future
 
+  const arrow = "grid size-8 place-items-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 disabled:pointer-events-none disabled:opacity-30";
   return (
     <Card className="bg-gradient-to-br from-brand-50/70 via-surface to-surface p-5">
       <SectionTitle icon={Clock} title="Hours by day">
-        <Segmented label="Week" value={which} onChange={setWhich} options={[["this", "This week"], ["last", "Last week"]]} />
+        <Segmented label="Period" value={mode} onChange={pickMode} options={[["week", "Week"], ["month", "Month"], ["custom", "Custom"]]} />
       </SectionTitle>
-      <p className="mb-4 text-sm text-stone-500">
-        <span className="text-2xl font-extrabold text-stone-900">{formatHours(total)}</span> from {formatDate(weekStart)} to {formatDate(addDays(weekStart, 4))}
-      </p>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-stone-500">
+          <span className="text-2xl font-extrabold text-stone-900">{formatHours(total)}</span> {title}
+        </p>
+        {mode === "custom" ? (
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-stone-500">
+            <input type="date" aria-label="From" value={from} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} className={cx(inputClass, "!h-9 w-auto")} />
+            to
+            <input type="date" aria-label="To" value={to} min={from} max={toDateKey(now)} onChange={(e) => e.target.value && setTo(e.target.value)} className={cx(inputClass, "!h-9 w-auto")} />
+          </span>
+        ) : (
+          <span className="flex items-center gap-1">
+            <button type="button" aria-label={`Previous ${mode}`} onClick={() => setOffset((o) => o - 1)} className={arrow}>
+              <ChevronLeft className="size-4" />
+            </button>
+            <button type="button" aria-label={`Next ${mode}`} disabled={atNow} onClick={() => setOffset((o) => o + 1)} className={arrow}>
+              <ChevronRight className="size-4" />
+            </button>
+          </span>
+        )}
+      </div>
+      {!slots.length && <p className="py-14 text-center text-sm text-stone-400">No working days in these dates</p>}
+      {slots.length > 0 && (
       <div className="relative">
         {/* Recessive grid: a line at the max and at half */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-40 border-t border-dashed border-stone-200" />
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-20 border-t border-dashed border-stone-100" />
-        <div className="flex h-40 items-end gap-2 sm:gap-4" onMouseLeave={() => setHover(null)}>
+        <div key={`${mode}${offset}${from}${to}`} className={cx("flex h-40 items-end", gap)} onMouseLeave={() => setHover(null)}>
           {days.map((secs, i) => (
             <div
               key={i}
@@ -78,11 +143,11 @@ function WeekChart({ entries, now }) {
               onMouseEnter={() => setHover(i)}
               onFocus={() => setHover(i)}
               tabIndex={0}
-              aria-label={`${DAY_NAMES[i]}: ${formatHours(secs)}`}
+              aria-label={`${slots[i].name}: ${formatHours(secs)}`}
             >
               {hover === i && (
                 <span className="absolute -top-8 z-10 palette-fixed rounded-lg bg-stone-900 px-2 py-1 text-xs font-bold whitespace-nowrap text-white shadow-float">
-                  {DAY_NAMES[i]} · {formatHours(secs)}
+                  {slots[i].name} · {formatHours(secs)}
                 </span>
               )}
               <div
@@ -91,19 +156,20 @@ function WeekChart({ entries, now }) {
                   i === todayIdx ? "bg-brand-500" : hover === i ? "bg-brand-400" : "bg-brand-300",
                   secs === 0 && "!bg-stone-200",
                 )}
-                style={{ height: secs ? `${Math.max(4, (secs / max) * 100)}%` : "2px", animationDelay: `${i * 50}ms` }}
+                style={{ height: secs ? `${Math.max(4, (secs / max) * 100)}%` : "2px", animationDelay: `${i * (slots.length > 10 ? 15 : 50)}ms` }}
               />
             </div>
           ))}
         </div>
-        <div className="mt-2 flex gap-2 border-t border-stone-200 pt-2 sm:gap-4">
-          {DAY_NAMES.map((d, i) => (
-            <span key={d} className={cx("flex-1 text-center text-[11px] font-bold", i === todayIdx ? "text-brand-600" : "text-stone-400")}>
-              {d}
+        <div className={cx("mt-2 flex border-t border-stone-200 pt-2", gap)}>
+          {slots.map((d, i) => (
+            <span key={d.start} className={cx("min-w-0 flex-1 text-center font-bold", slots.length > 10 ? "text-[10px]" : "text-[11px]", i === todayIdx ? "text-brand-600" : "text-stone-400")}>
+              {d.label}
             </span>
           ))}
         </div>
       </div>
+      )}
     </Card>
   );
 }
@@ -286,12 +352,7 @@ function PersonalDashboard() {
   const revealRef = useReveal(); // cards appear as you scroll to them
   const clientEntries = useClientHoursEntries(entries);
 
-  const weekStart = startOfWeek(now);
-  const thisWeek = secondsBetween(entries, weekStart, now + 1, now);
-  // Last week up to the same point in the week, so the comparison is fair mid-week.
-  const lastWeekSoFar = secondsBetween(entries, addDays(weekStart, -7), now - 7 * DAY, now);
   const today = secondsBetween(entries, startOfDay(now), now + 1, now);
-  const delta = thisWeek - lastWeekSoFar;
   const holidays = useMemo(() => new Set((state.holidays ?? []).map((h) => h.day)), [state.holidays]);
   const streak = useMemo(() => workdayStreak(entries, holidays, now), [entries, holidays, now]);
 
@@ -299,13 +360,8 @@ function PersonalDashboard() {
     <div ref={revealRef} className="@container reveal space-y-4">
       <Hero name={me.name.split(" ")[0]} title="Here's your week so far">
         {/* Same-size tiles, whatever each one holds */}
-        <div className="grid w-full grid-cols-3 items-stretch gap-2.5 @3xl:w-[30rem]">
+        <div className="grid w-full grid-cols-2 items-stretch gap-2.5 @3xl:w-[20rem]">
         <HeroStat label="Today" value={formatHours(today)} live={running} />
-        <HeroStat
-          label="This week"
-          value={formatHours(thisWeek)}
-          sub={lastWeekSoFar || thisWeek ? `${delta >= 0 ? "▲" : "▼"} ${formatHours(Math.abs(delta))} ${delta >= 0 ? "more" : "less"} than last week` : undefined}
-        />
         <HeroStat label="Streak" icon={streak ? Fire : Flame} iconClass={streak ? "" : "text-white/40"} value={`${streak} ${streak === 1 ? "day" : "days"}`} />
         </div>
       </Hero>

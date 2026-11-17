@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Camera, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ImageOff, ListChecks, Search, Users, X } from "lucide-react";
+import { Camera, ChevronDown, ChevronLeft, ChevronRight, Clock, Download, ImageOff, ListChecks, Search, X } from "lucide-react";
 import { navigate } from "../../lib/router";
-import { addDays, decimalHours, dueInfo, formatDate, formatHours, formatTime, fromDateKey, startOfWeek, toDateKey, todayKey } from "../../lib/time";
+import { addDays, decimalHours, formatDate, formatHours, formatTime, fromDateKey, startOfWeek, toDateKey, todayKey } from "../../lib/time";
 import { listSnapshots, snapshotUrls } from "../../store/db";
-import { assigneesOf, clientCycle, isDone, progressOf, subtaskIdsUnder } from "../../store/model";
+import { clientCycle, isDone, subtaskIdsUnder } from "../../store/model";
 import { Pager, Segmented } from "../admin/AdminPage";
-import { StatTile } from "../work/DashboardParts";
-import { Avatar, AvatarStack, Button, Card, EmptyState, Field, STATUS_STYLE, Select, StatusIcon, cx, inputClass } from "../ui";
+import { Avatar, Button, Card, EmptyState, Field, Select, StatusIcon, cx, inputClass } from "../ui";
 import { Collapse } from "../motion";
+import RangeArrows from "../RangeArrows";
 
 /*
  * The client portal's Work, Hours and Screenshots pages. Read only.
@@ -25,7 +25,6 @@ export function secondsIn(entries, from, to, now = Date.now()) {
   return total;
 }
 
-const DUE_TONE = { danger: "text-red-600 font-bold", warning: "text-amber-600 font-semibold", default: "text-stone-500", muted: "text-stone-400" };
 
 /** Project › Task names for a subtask. */
 function placeOf(index, subtask) {
@@ -87,17 +86,9 @@ export function WorkPage({ client, index, entries, team, projectId }) {
       {!projects.length && <EmptyState icon={ListChecks} title="No projects yet" />}
       {projects.map((p) => {
         const tasks = index.childrenOf(p.id).filter((t) => t.type === "task" && taskMatches(t));
-        const prog = progressOf(index, p.id);
-        const ids = subtaskIdsUnder(index, p.id);
-        const secs = [...ids].reduce((s, id) => s + (secsBySubtask.get(id) ?? 0), 0);
         return (
           <Card key={p.id} className="p-4 @md:p-5">
-            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-base font-extrabold tracking-tight text-stone-900">{p.name}</h2>
-              <span className="text-xs font-semibold text-stone-500 tabular-nums">
-                {formatHours(secs)} logged · {prog.done}/{prog.total} done
-              </span>
-            </div>
+            <h2 className="mb-3 text-base font-extrabold tracking-tight text-stone-900">{p.name}</h2>
             {!tasks.length ? (
               <p className="py-4 text-center text-sm text-stone-400">{show === "done" ? "Nothing completed yet" : show === "open" ? "Nothing open" : "No tasks yet"}</p>
             ) : (
@@ -119,42 +110,21 @@ function TaskRow({ task, index, team, secsBySubtask, query }) {
   const subtasks = index.childrenOf(task.id).filter((s) => s.type === "subtask");
   const shown = query && !task.name.toLowerCase().includes(query) ? subtasks.filter((s) => s.name.toLowerCase().includes(query)) : subtasks;
   const expanded = open || (!!query && shown.length > 0);
-  const prog = progressOf(index, task.id);
-  const due = dueInfo(task.due, isDone(task));
-  const secs = subtasks.reduce((s, x) => s + (secsBySubtask.get(x.id) ?? 0), 0);
 
   return (
     <li className={cx("rounded-2xl transition", expanded ? "bg-brand-50/50 ring-1 ring-brand-100" : "bg-stone-50")}>
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={expanded} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl p-3 text-left hover:bg-brand-50/70">
         <StatusIcon status={task.status} className="size-[18px] shrink-0" />
         <span className={cx("min-w-0 flex-1 truncate text-sm font-bold text-stone-800", isDone(task) && "text-stone-400 line-through")}>{task.name}</span>
-        <span className="flex items-center gap-2.5 text-xs">
-          {task.due && <span className={cx("whitespace-nowrap", DUE_TONE[due.tone])}>{due.label}</span>}
-          {prog.total > 0 && <span className="text-stone-400 tabular-nums">{prog.done}/{prog.total}</span>}
-          {secs > 0 && <span className="font-semibold text-stone-600 tabular-nums">{formatHours(secs)}</span>}
-          <ChevronDown className={cx("size-4 text-stone-400 transition-transform", expanded && "rotate-180")} />
-        </span>
+        <ChevronDown className={cx("size-4 shrink-0 text-stone-400 transition-transform", expanded && "rotate-180")} />
       </button>
       <Collapse open={expanded}>
         <ul className="space-y-1 px-3 pb-3 pl-10">
           {!shown.length && <li className="py-1 text-xs text-stone-400">No subtasks</li>}
           {shown.map((s) => {
-            const people = assigneesOf(s).map((id) => team.get(id)).filter(Boolean);
-            const sDue = dueInfo(s.due, isDone(s));
-            const sSecs = secsBySubtask.get(s.id) ?? 0;
             return (
-              <li key={s.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-surface px-3 py-2 ring-1 ring-stone-900/5">
-                <span className={cx("min-w-0 flex-1 truncate text-sm font-semibold text-stone-800", isDone(s) && "text-stone-400 line-through")}>{s.name}</span>
-                <span className="flex items-center gap-2.5 text-xs">
-                  {s.due && <span className={cx("whitespace-nowrap", DUE_TONE[sDue.tone])}>{sDue.label}</span>}
-                  {sSecs > 0 && <span className="font-semibold text-stone-600 tabular-nums">{formatHours(sSecs)}</span>}
-                  {people.length > 0 && (
-                    <span title={people.map((m) => m.name).join(", ")}>
-                      <AvatarStack members={people} max={3} size="xs" />
-                    </span>
-                  )}
-                  <span className={cx("rounded-full px-2 py-0.5 text-[11px] font-bold whitespace-nowrap", STATUS_STYLE[s.status]?.pill ?? "bg-stone-100 text-stone-600")}>{s.status ?? "To do"}</span>
-                </span>
+              <li key={s.id} className="rounded-xl bg-surface px-3 py-2 ring-1 ring-stone-900/5">
+                <span className={cx("block truncate text-sm font-semibold text-stone-800", isDone(s) && "text-stone-400 line-through")}>{s.name}</span>
               </li>
             );
           })}
@@ -201,7 +171,6 @@ export function HoursPage({ client, index, entries, team }) {
     .filter((e) => e.start >= fromMs && e.start < toMs && (!inProject || inProject.has(e.subtaskId)))
     .sort((a, b) => b.start - a.start);
   const total = secondsIn(rows, 0, now + 1, now);
-  const people = new Set(rows.map((e) => e.memberId));
 
   // Grouped by day, newest first.
   const days = [];
@@ -292,11 +261,6 @@ export function HoursPage({ client, index, entries, team }) {
         </div>
       </Card>
 
-      <div className="grid gap-3 @lg:grid-cols-3">
-        <StatTile icon={Clock} tone="brand" label="Hours" value={formatHours(total)} />
-        <StatTile icon={ListChecks} tone="violet" label="Sessions" value={String(rows.length)} />
-        <StatTile icon={Users} tone="sky" label="People" value={String(people.size)} />
-      </div>
 
       <Card className="p-4 @md:p-5">
         {!days.length ? (
@@ -348,10 +312,6 @@ const PER_PAGE = 48;
 function shotRange(key) {
   const today = todayKey();
   if (key === "today") return [today, today];
-  if (key === "yesterday") {
-    const y = toDateKey(addDays(fromDateKey(today), -1));
-    return [y, y];
-  }
   if (key === "week") return [toDateKey(startOfWeek(Date.now())), today];
   if (key === "month") return monthRange(0);
   return null;
@@ -423,9 +383,20 @@ export function ScreenshotsPage({ index, entries, team }) {
             label="Dates"
             value={range}
             onChange={pick}
-            options={[["today", "Today"], ["yesterday", "Yesterday"], ["week", "This week"], ["month", "This month"], ["custom", "Custom"]]}
+            options={[["today", "Day"], ["week", "Week"], ["month", "Month"]]}
             size="sm"
           />
+          {(range === "today" ? "day" : range === "week" ? "week" : null) && (
+            <RangeArrows
+              kind={range === "today" ? "day" : range === "week" ? "week" : null}
+              from={from}
+              to={to}
+              onStep={(r) => {
+                setDates(r);
+                setPage(0);
+              }}
+            />
+          )}
         </div>
         <div className="grid gap-3 @lg:grid-cols-2">
           <Field label="From">

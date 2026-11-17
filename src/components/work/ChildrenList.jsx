@@ -8,6 +8,7 @@ import { useStore } from "../../store/store";
 import { Segmented } from "../admin/AdminPage";
 import { useDialogs } from "../dialogs";
 import AddWizard from "../AddSubtaskWizard";
+import { RichDescription } from "../Attachments";
 import { TYPE_ICON } from "../ItemForm";
 import { Avatar, AvatarStack, Button, EmptyState, PillSelect, PriorityLabel, ProgressRing, STATUS_STYLE, StatusIcon, ADD_HINT, cx } from "../ui";
 import { Collapse, DoneName, DonePop } from "../motion";
@@ -188,7 +189,7 @@ function SubtaskDetails({ subtask }) {
   const hasTime = teamEntries.some((e) => e.subtaskId === subtask.id);
   return (
     <div className="animate-fade-in space-y-3 px-3 pb-3">
-      {subtask.description && <p className="px-1 text-sm whitespace-pre-wrap text-stone-600">{subtask.description}</p>}
+      {subtask.description && <RichDescription text={subtask.description} className="px-1 text-stone-600" />}
       <WorkProperties item={subtask} />
       <ClockCard subtask={subtask} />
       <div className="flex justify-end gap-1.5">

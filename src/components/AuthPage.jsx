@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from "react";
-import { ArrowLeft, Clock, FileText, Gauge, KeyRound, LogIn, Mail, MonitorSmartphone, Timer, UserPlus } from "lucide-react";
+import { ArrowLeft, Clock, KeyRound, LogIn, Mail, MonitorSmartphone, UserPlus } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { Button, Field, cx, inputClass } from "./ui";
 
@@ -143,39 +143,33 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered, no
         <aside className="relative hidden overflow-hidden bg-gradient-to-br from-brand-500 via-brand-600 to-orange-700 p-9 text-white md:flex md:flex-col">
           <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-[radial-gradient(rgb(255_255_255/0.12)_1px,transparent_1px)] [background-size:18px_18px]" />
           <div aria-hidden="true" className="pointer-events-none absolute -right-24 -bottom-24 size-80 rounded-full border-[40px] border-white/10" />
-          <div className="relative flex items-center gap-2.5">
-            <span className="grid size-10 place-items-center rounded-2xl bg-white/20 ring-1 ring-white/30 backdrop-blur">
-              <Clock className="size-5" />
+          <div className="relative flex items-center gap-3">
+            <img src="/favicon.svg" alt="HandySolver" className="size-11 shrink-0 rounded-[10px] shadow-soft ring-1 ring-white/30" />
+            <span className="leading-tight">
+              <span className="block text-xl font-extrabold tracking-tight">
+                Clock<span className="text-white/70">work</span>
+              </span>
+              <span className="block text-xs font-semibold text-white/65">by HandySolver</span>
             </span>
-            <span className="text-xl font-extrabold tracking-tight">HandySolver</span>
           </div>
-          <div className="relative mt-auto pt-16">
-            <h2 className="text-3xl leading-tight font-black tracking-tight">Every hour, accounted for.</h2>
-            <ul className="mt-6 space-y-3 text-sm font-medium text-white/90">
-              {[
-                [Timer, "Clock in on your subtasks with one click"],
-                [Gauge, "Client hours and billing cycles at a glance"],
-                [FileText, "Billable reports ready to download"],
-              ].map(([Icon, text]) => (
-                <li key={text} className="flex items-center gap-3">
-                  <span className="grid size-8 shrink-0 place-items-center rounded-xl bg-white/15 ring-1 ring-white/20">
-                    <Icon className="size-4" />
-                  </span>
-                  {text}
-                </li>
-              ))}
-            </ul>
+          {/* The drawing fills the panel under the logo, balanced between the logo and the bottom edge. */}
+          <div className="relative flex flex-1 items-center justify-center pt-4 pb-6">
+            <LoginIllustration className="w-full max-w-[380px]" />
           </div>
         </aside>
 
         {/* Form */}
         <div className="p-6 sm:p-9">
-          <div className="mb-6 flex items-center gap-2.5 md:hidden">
-            <span className="grid size-10 place-items-center rounded-2xl bg-gradient-to-br from-brand-400 to-brand-600 text-white shadow-glow">
-              <Clock className="size-5" />
+          <div className="mb-6 flex items-center gap-3 md:hidden">
+            <img src="/favicon.svg" alt="HandySolver" className="size-10 shrink-0 rounded-[8px] shadow-soft" />
+            <span className="leading-tight">
+              <span className="block text-[17px] font-extrabold tracking-tight text-stone-900">
+                Clock<span className="text-brand-500">work</span>
+              </span>
+              <span className="block text-[11px] font-semibold text-stone-400">by HandySolver</span>
             </span>
-            <span className="text-xl font-extrabold tracking-tight text-stone-900">HandySolver</span>
           </div>
+          <LoginIllustration className="mx-auto mb-6 w-full max-w-[240px] md:hidden" tone="light" />
           {tabs && (
             <div className="mb-5">
               <h1 className="text-2xl font-black tracking-tight text-stone-900">{signup ? "Create your account" : "Welcome back"}</h1>
@@ -298,6 +292,80 @@ export default function AuthPage({ mode: initialMode = "signin", onRecovered, no
 }
 
 /** The Google "G" (official colours). */
+/**
+ * A clock with a running timer, a week of hour bars and a screenshot card: what Clockwork does, drawn.
+ * `tone="dark"` sits on the orange brand panel; "light" on the white form (phones).
+ */
+function LoginIllustration({ className, tone = "dark" }) {
+  const onBrand = tone === "dark";
+  const card = onBrand ? "rgb(255 255 255 / 0.95)" : "#ffffff";
+  const ink = "#292524";
+  const soft = "#e7e5e4";
+  const accent = "#f97316";
+  const bars = [38, 56, 30, 64, 48];
+  return (
+    <svg viewBox="10 10 288 208" role="img" aria-label="A clock, a week of logged hours and a screenshot" className={className}>
+      <defs>
+        <filter id="lg-shadow" x="-20%" y="-20%" width="140%" height="160%">
+          <feDropShadow dx="0" dy="6" stdDeviation="8" floodColor="#7c2d12" floodOpacity={onBrand ? 0.28 : 0.12} />
+        </filter>
+      </defs>
+
+      {/* On the white form (phones) the cards need a tinted backdrop to stand out. */}
+      {!onBrand && <rect x="10" y="10" width="288" height="208" rx="24" fill="#fff7ed" />}
+      {/* soft ground */}
+      <ellipse cx="150" cy="204" rx="128" ry="10" fill={onBrand ? "rgb(255 255 255 / 0.14)" : "#f5f5f4"} />
+
+      {/* Hours card */}
+      <g filter="url(#lg-shadow)">
+        <rect x="20" y="70" width="168" height="124" rx="16" fill={card} />
+      </g>
+      <rect x="36" y="86" width="64" height="8" rx="4" fill={ink} opacity="0.85" />
+      <rect x="36" y="100" width="40" height="6" rx="3" fill={soft} />
+      {bars.map((h, i) => (
+        <g key={i}>
+          <rect x={40 + i * 28} y={180 - h} width="16" height={h} rx="4" fill={i === 3 ? accent : soft} />
+          <rect x={40 + i * 28} y={180 - h} width="16" height={Math.round(h * 0.45)} rx="4" fill={i === 3 ? "#fdba74" : "#d6d3d1"} />
+        </g>
+      ))}
+
+      {/* Screenshot card */}
+      <g filter="url(#lg-shadow)" transform="rotate(6 236 150)">
+        <rect x="190" y="112" width="92" height="74" rx="12" fill={card} />
+        <rect x="198" y="120" width="76" height="44" rx="6" fill="#fff7ed" />
+        <path d="M200 160 l20 -18 l14 12 l12 -10 l26 16 z" fill="#fdba74" />
+        <circle cx="258" cy="132" r="6" fill={accent} />
+        <rect x="198" y="170" width="44" height="6" rx="3" fill={soft} />
+      </g>
+
+      {/* Clock */}
+      <g filter="url(#lg-shadow)">
+        <circle cx="214" cy="66" r="48" fill={card} />
+      </g>
+      <circle cx="214" cy="66" r="40" fill="none" stroke={soft} strokeWidth="6" />
+      <circle cx="214" cy="66" r="40" fill="none" stroke={accent} strokeWidth="6" strokeLinecap="round" strokeDasharray="251" strokeDashoffset="85" transform="rotate(-90 214 66)" />
+      {[0, 90, 180, 270].map((a) => (
+        <rect key={a} x="212.5" y="32" width="3" height="7" rx="1.5" fill="#a8a29e" transform={`rotate(${a} 214 66)`} />
+      ))}
+      <line x1="214" y1="66" x2="214" y2="44" stroke={ink} strokeWidth="4" strokeLinecap="round">
+        <animateTransform attributeName="transform" type="rotate" from="0 214 66" to="360 214 66" dur="12s" repeatCount="indefinite" />
+      </line>
+      <line x1="214" y1="66" x2="230" y2="72" stroke={ink} strokeWidth="4" strokeLinecap="round" />
+      <circle cx="214" cy="66" r="5" fill={accent} />
+
+      {/* "Clocked in" pill */}
+      <g filter="url(#lg-shadow)">
+        <rect x="40" y="30" width="112" height="28" rx="14" fill={card} />
+      </g>
+      <circle cx="56" cy="44" r="5" fill="#10b981">
+        <animate attributeName="opacity" values="1;0.35;1" dur="1.6s" repeatCount="indefinite" />
+      </circle>
+      <rect x="68" y="40" width="48" height="8" rx="4" fill={ink} opacity="0.85" />
+      <rect x="122" y="40" width="20" height="8" rx="4" fill={soft} />
+    </svg>
+  );
+}
+
 function GoogleLogo() {
   return (
     <svg viewBox="0 0 48 48" className="size-5" aria-hidden="true">

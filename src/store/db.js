@@ -332,3 +332,22 @@ export async function revokeClientAccess(id) {
   const { error } = await supabase.rpc("admin_revoke_client_access", { p_id: id });
   if (error) throw error;
 }
+
+/* ---------- Description attachments (private "attachments" bucket; team members only) ---------- */
+
+/** Upload a picture, video, audio clip or PDF for a description. Returns its storage path. */
+export async function uploadAttachment(file) {
+  const safe = file.name.replace(/[^\w.-]+/g, "_").slice(-80) || "file";
+  const path = `${crypto.randomUUID()}/${safe}`;
+  const { error } = await supabase.storage.from("attachments").upload(path, file, { contentType: file.type || undefined, cacheControl: "31536000" });
+  if (error) throw error;
+  return path;
+}
+
+/** Short-lived links to show attachments. Returns Map(path → url). */
+export async function attachmentUrls(paths) {
+  if (!paths.length) return new Map();
+  const { data, error } = await supabase.storage.from("attachments").createSignedUrls(paths, 60 * 60);
+  if (error) throw error;
+  return new Map(data.filter((d) => d.signedUrl).map((d) => [d.path, d.signedUrl]));
+}

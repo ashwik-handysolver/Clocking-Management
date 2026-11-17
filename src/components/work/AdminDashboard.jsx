@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Activity, BadgeDollarSign, CircleSlash, Radio, Timer, Users } from "lucide-react";
+import { Activity, BadgeDollarSign, ChevronLeft, ChevronRight, CircleSlash, Radio, Timer, Users } from "lucide-react";
 import { Legend, StackedBars } from "../charts";
 import { useNow } from "../../hooks/useNow";
 import { navigate, openItem } from "../../lib/router";
-import { addDays, formatClock, formatDate, formatHours, formatTime, startOfWeek, timeAgo } from "../../lib/time";
+import { addDays, formatClock, formatDate, formatHours, formatTime, fromDateKey, startOfWeek, timeAgo, toDateKey } from "../../lib/time";
 import { entryBilling, entrySeconds, pathLabel, workingMembers } from "../../store/model";
 import { useStore } from "../../store/store";
 import ClientHoursCard from "./ClientHoursCard";
 import ClientCyclesCard from "./ClientCyclesCard";
 import { Hero, StatTile } from "./DashboardParts";
-import { Avatar, Card, IconChip, cx } from "../ui";
+import { Avatar, Card, IconChip, cx, inputClass } from "../ui";
+import { Segmented } from "../admin/AdminPage";
 import { useReveal } from "../motion";
 
 /*
@@ -99,12 +100,34 @@ function LiveNow({ team, entries, now: pageNow }) {
   );
 }
 
-/** Hours per person for a week, split billable / non-billable. */
+/** Hours per person for a week, a month or any dates, split billable / non-billable. */
 function TeamHours({ team, entries, now }) {
   const { index } = useStore();
-  const [which, setWhich] = useState("this");
-  const from = which === "this" ? startOfWeek(now) : addDays(startOfWeek(now), -7);
-  const to = which === "this" ? now + 1 : startOfWeek(now);
+  const [mode, setMode] = useState("week"); // week | month | custom
+  const [offset, setOffset] = useState(0); // weeks or months back from the current one
+  const [fromKey, setFromKey] = useState(() => toDateKey(startOfWeek(now)));
+  const [toKey, setToKey] = useState(() => toDateKey(now));
+  const pickMode = (m) => {
+    setMode(m);
+    setOffset(0);
+  };
+
+  // The period on show as [from, to), and what to call it.
+  let from, to, title;
+  if (mode === "week") {
+    from = addDays(startOfWeek(now), offset * 7);
+    to = Math.min(addDays(from, 7), now + 1);
+    title = offset === 0 ? "This week" : offset === -1 ? "Last week" : `${formatDate(from)} – ${formatDate(addDays(from, 4))}`;
+  } else if (mode === "month") {
+    const d = new Date(now);
+    from = new Date(d.getFullYear(), d.getMonth() + offset, 1).getTime();
+    to = Math.min(new Date(d.getFullYear(), d.getMonth() + offset + 1, 1).getTime(), now + 1);
+    title = formatDate(from, { month: "long", year: "numeric" });
+  } else {
+    from = fromDateKey(fromKey);
+    to = Math.min(addDays(fromDateKey(toKey), 1), now + 1);
+    title = fromKey === toKey ? formatDate(from, { weekday: "long", day: "numeric", month: "short" }) : `${formatDate(from)} – ${formatDate(fromDateKey(toKey))}`;
+  }
   const rows = team
     .map((m) => {
       const mine = entries.filter((e) => e.memberId === m.id);
@@ -113,24 +136,35 @@ function TeamHours({ team, entries, now }) {
       return { m, billable, non, total: billable + non };
     })
     .sort((a, b) => b.total - a.total);
+  const total = rows.reduce((a, r) => a + r.total, 0);
+  const arrow = "grid size-8 place-items-center rounded-full text-stone-500 hover:bg-stone-100 hover:text-stone-800 disabled:pointer-events-none disabled:opacity-30";
 
   return (
     <Card className="bg-gradient-to-br from-violet-50 via-surface to-surface p-5">
       <SectionTitle icon={Users} title="Team hours">
-        <div role="group" aria-label="Week" className="flex rounded-full bg-stone-100 p-0.5">
-          {[["this", "This week"], ["last", "Last week"]].map(([k, t]) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={which === k}
-              onClick={() => setWhich(k)}
-              className={cx("rounded-full px-3 py-1 text-xs font-bold transition", which === k ? "bg-surface text-stone-900 shadow-sm" : "text-stone-500 hover:text-stone-800")}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+        <Segmented size="sm" label="Period" value={mode} onChange={pickMode} options={[["week", "Week"], ["month", "Month"], ["custom", "Custom"]]} />
       </SectionTitle>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-stone-500">
+          <span className="text-2xl font-extrabold text-stone-900">{formatHours(total)}</span> {title}
+        </p>
+        {mode === "custom" ? (
+          <span className="flex items-center gap-1.5 text-xs font-semibold text-stone-500">
+            <input type="date" aria-label="From" value={fromKey} max={toKey} onChange={(e) => e.target.value && setFromKey(e.target.value)} className={cx(inputClass, "!h-9 w-auto")} />
+            to
+            <input type="date" aria-label="To" value={toKey} min={fromKey} max={toDateKey(now)} onChange={(e) => e.target.value && setToKey(e.target.value)} className={cx(inputClass, "!h-9 w-auto")} />
+          </span>
+        ) : (
+          <span className="flex items-center gap-1">
+            <button type="button" aria-label={`Previous ${mode}`} onClick={() => setOffset((o) => o - 1)} className={arrow}>
+              <ChevronLeft className="size-4" />
+            </button>
+            <button type="button" aria-label={`Next ${mode}`} disabled={offset >= 0} onClick={() => setOffset((o) => o + 1)} className={arrow}>
+              <ChevronRight className="size-4" />
+            </button>
+          </span>
+        )}
+      </div>
       <div className="mb-4">
         <Legend />
       </div>
