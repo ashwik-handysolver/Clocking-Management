@@ -366,13 +366,13 @@ function PersonalDashboard() {
         </div>
       </Hero>
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <WeekChart entries={entries} now={now} />
         <RecentSubtasks />
       </div>
 
       {/* If there's no chart to show (no client with hours), Recent sessions takes the full width */}
-      <div className="grid items-start gap-4 xl:grid-cols-2 [&>*:only-child]:col-span-full">
+      <div className="grid items-start gap-4 xl:grid-cols-2 [&>*]:min-w-0 [&>*:only-child]:col-span-full">
         <RecentSessions entries={entries} now={now} />
         {/* The team's billable hours per billing cycle, for the clients you work in */}
         <ClientCyclesCard entries={clientEntries} now={now} />

@@ -242,7 +242,7 @@ export default function AdminDashboard() {
     <div ref={revealRef} className="@container reveal space-y-4">
       <Hero name={me.name.split(" ")[0]} title="Here's how the team is doing today" />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 [&>*]:min-w-0">
         <StatTile icon={Radio} tone="emerald" label="Clocked in now" value={`${live} / ${team.length}`} sub={live ? "Working right now" : "Nobody is clocked in"} />
         <StatTile icon={Timer} tone="brand" label="Team hours this week" value={formatHours(total)} sub={`${formatDate(weekStart)} to today`} />
         <StatTile
@@ -256,7 +256,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Client hours (accordion) beside who's on the clock; same height on wide screens */}
-      <div className="grid items-stretch gap-4 xl:grid-cols-[1.15fr_1fr]">
+      <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <ClientHoursCard entries={teamEntries} now={now} />
         <LiveNow team={team} entries={teamEntries} now={now} />
       </div>
@@ -264,7 +264,7 @@ export default function AdminDashboard() {
       {/* Full width: billable hours in each billing cycle, one client at a time */}
       <ClientCyclesCard entries={teamEntries} now={now} />
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <TeamActivity now={now} />
         <TeamHours team={team} entries={teamEntries} now={now} />
       </div>
