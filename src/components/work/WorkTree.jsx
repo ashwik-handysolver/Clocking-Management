@@ -75,7 +75,8 @@ export default function WorkTree({ selectedId, onHide }) {
   const [query, setQuery] = useState("");
   const [assignee, setAssignee] = useState("all");
   const [status, setStatus] = useState("all");
-  const [collapsed, setCollapsed] = useState(() => new Set());
+  // Everything starts collapsed; only the clients opened here (and the one you're on) show their tasks.
+  const [opened, setOpened] = useState(() => new Set());
 
   // Only the signed-in user's own time (see store/permissions.js).
   const seconds = useMemo(() => rollupSeconds(index, entries), [index, entries]);
@@ -84,10 +85,11 @@ export default function WorkTree({ selectedId, onHide }) {
 
   // When the selection changes (e.g. from search), make sure its parents are expanded.
   useEffect(() => {
-    setCollapsed((prev) => {
-      if (![...selectedPath].some((id) => prev.has(id) && id !== selectedId)) return prev;
+    setOpened((prev) => {
+      const parents = [...selectedPath].filter((id) => id !== selectedId);
+      if (parents.every((id) => prev.has(id))) return prev;
       const next = new Set(prev);
-      selectedPath.forEach((id) => id !== selectedId && next.delete(id));
+      parents.forEach((id) => next.add(id));
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -122,9 +124,9 @@ export default function WorkTree({ selectedId, onHide }) {
 
   // Only clients expand: projects are labels and subtasks live on their task's page.
   const parentIds = items.filter((i) => i.type === "client" && index.childrenOf(i.id).length).map((i) => i.id);
-  const allCollapsed = parentIds.length > 0 && parentIds.every((id) => collapsed.has(id));
+  const allCollapsed = parentIds.length > 0 && parentIds.every((id) => !opened.has(id));
   const toggle = (id) =>
-    setCollapsed((prev) => {
+    setOpened((prev) => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -163,7 +165,7 @@ export default function WorkTree({ selectedId, onHide }) {
       .map((item) => {
         const isClient = item.type === "client";
         const kids = isClient ? index.childrenOf(item.id).filter((c) => visible.get(c.id)) : [];
-        const open = kids.length > 0 && (q || filtersOn || !collapsed.has(item.id));
+        const open = kids.length > 0 && (q || filtersOn || opened.has(item.id));
         const selected = item.id === selectedId;
         const secs = seconds.get(item.id) ?? 0;
 
@@ -232,7 +234,7 @@ export default function WorkTree({ selectedId, onHide }) {
             icon={allCollapsed ? ChevronsUpDown : ChevronsDownUp}
             title={allCollapsed ? "Expand all" : "Collapse all"}
             aria-label={allCollapsed ? "Expand all" : "Collapse all"}
-            onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(parentIds))}
+            onClick={() => setOpened(allCollapsed ? new Set(parentIds) : new Set())}
           />
           {onHide && (
             <Button

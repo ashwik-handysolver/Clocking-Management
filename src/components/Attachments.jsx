@@ -1,17 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FileText, Loader2, Lock, Paperclip } from "lucide-react";
+import { FileText, Loader2, Lock, Paperclip, X } from "lucide-react";
 import { attachmentUrls, uploadAttachment } from "../store/db";
 import { cx } from "./ui";
 
 /*
- * Media in descriptions. An uploaded file is written into the text as one line:
+ * Media in descriptions. Each uploaded file is saved at the end of the description as one line:
  *   ![photo.png](attachment:<storage path>)
- * so it saves with the description as it is, and the line can be moved or deleted like any text.
- * When the description is shown, those lines become the picture / video / audio / file link.
+ * The editor never shows those lines: the box holds just the text and the files sit underneath
+ * as thumbnails. When the description is shown, the lines become the picture / video / file.
  */
 
 const TOKEN = /!\[([^\]]*)\]\(attachment:([^)\s]+)\)/g;
-const MAX_BYTES = 50 * 1024 * 1024;
+const MAX_BYTES = 2 * 1024 * 1024;
 
 const kindOf = (name) => {
   const ext = name.split(".").pop().toLowerCase();
@@ -21,66 +21,138 @@ const kindOf = (name) => {
   return "file";
 };
 
-const tokenFor = (file, path) => `![${file.name.replace(/[[\]]/g, "")}](attachment:${path})`;
+/** A saved description split into its text and its files. */
+// The files block at the end: "\n\n" then one file line each.
+const FILES_BLOCK = /(?:^|\n\n)((?:!\[[^\]]*\]\(attachment:[^)\s]+\)(?:\n|$))+)$/;
 
-/** Uploads files and returns the text to insert. Throws on a failed upload. */
-async function uploadAll(files) {
-  const out = [];
-  for (const f of files) {
-    if (f.size > MAX_BYTES) throw new Error(`${f.name} is over 50 MB`);
-    out.push(tokenFor(f, await uploadAttachment(f)));
-  }
-  return out.join("\n");
+export function splitDescription(desc = "") {
+  const files = [...desc.matchAll(TOKEN)].map((m) => ({ name: m[1] || "file", path: m[2] }));
+  if (!files.length) return { text: desc, files };
+  // The text is kept exactly as typed (spaces and new lines too); only the files block is cut off.
+  // Older descriptions with a file line in the middle lose just that line.
+  const text = desc.replace(FILES_BLOCK, "").replace(TOKEN, "").replace(/\n{3,}/g, "\n\n");
+  return { text, files };
+}
+
+/** Text and files back into one description to save. */
+export function joinDescription(text, files) {
+  if (!files.length) return text;
+  const lines = files.map((f) => `![${f.name.replace(/[[\]]/g, "")}](attachment:${f.path})`);
+  return (text ? `${text}\n\n` : "") + lines.join("\n");
 }
 
 /**
- * Hooks a description textarea up for media: a paperclip button, pasting and dropping files.
- * `value`/`onChange` follow the textarea (onChange gets an event-like { target: { value } }).
+ * Media for a description field: a paperclip button, pasting and dropping files.
+ * `value` is the whole saved description; `onChange(newDescription)`.
+ * Returns the text for the textarea, the files to show under it, and handlers.
  */
-export function useAttachments({ value, onChange, textareaRef }) {
+export function useAttachments({ value, onChange }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const insert = async (files) => {
-    files = [...files].filter(Boolean);
-    if (!files.length) return;
+  const latest = useRef(value); // uploads finish later: add to what's there by then
+  latest.current = value;
+  const { text, files } = splitDescription(value);
+
+  const setText = (e) => {
+    const next = e?.target ? e.target.value : e;
+    onChange(joinDescription(next, splitDescription(latest.current).files));
+  };
+  const remove = (path) => {
+    const cur = splitDescription(latest.current);
+    onChange(joinDescription(cur.text, cur.files.filter((f) => f.path !== path)));
+  };
+  const insert = async (list) => {
+    list = [...list].filter(Boolean);
+    if (!list.length) return;
     setBusy(true);
     setError("");
     try {
-      const text = await uploadAll(files);
-      const el = textareaRef.current;
-      const at = el && document.activeElement === el ? el.selectionEnd : value.length;
-      const before = value.slice(0, at);
-      const after = value.slice(at);
-      const sep = before && !before.endsWith("\n") ? "\n" : "";
-      const tail = after && !after.startsWith("\n") ? "\n" : "";
-      onChange({ target: { value: before + sep + text + tail + after } });
+      for (const f of list) {
+        if (f.size > MAX_BYTES) throw new Error(`${f.name} is over 2 MB`);
+        const path = await uploadAttachment(f);
+        const cur = splitDescription(latest.current);
+        const next = joinDescription(cur.text, [...cur.files, { name: f.name || "file", path }]);
+        latest.current = next;
+        onChange(next);
+      }
     } catch (e) {
       setError(e.message || "Upload failed");
     } finally {
       setBusy(false);
     }
   };
+  const takeFiles = (e, list) => {
+    const got = [...(list ?? [])];
+    if (got.length) {
+      e.preventDefault();
+      insert(got);
+    }
+  };
   return {
     busy,
     error,
+    text,
+    files,
+    setText,
+    remove,
     insert,
     textareaProps: {
-      onPaste: (e) => {
-        const files = [...(e.clipboardData?.files ?? [])];
-        if (files.length) {
-          e.preventDefault();
-          insert(files);
-        }
-      },
-      onDrop: (e) => {
-        const files = [...(e.dataTransfer?.files ?? [])];
-        if (files.length) {
-          e.preventDefault();
-          insert(files);
-        }
-      },
+      onPaste: (e) => takeFiles(e, e.clipboardData?.files),
+      onDrop: (e) => takeFiles(e, e.dataTransfer?.files),
     },
   };
+}
+
+/** The files attached in the editor, as small thumbnails with a remove button. */
+export function AttachmentList({ files, onRemove, busy }) {
+  const key = files.map((f) => f.path).join("|");
+  const [urls, setUrls] = useState(new Map());
+  useEffect(() => {
+    let live = true;
+    if (files.length) attachmentUrls(files.map((f) => f.path)).then((m) => live && setUrls(m)).catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+  if (!files.length && !busy) return null;
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {files.map((f) => {
+        const url = urls.get(f.path);
+        const kind = kindOf(f.name);
+        return (
+          <div key={f.path} className="group relative size-20 overflow-hidden rounded-xl bg-stone-100 ring-1 ring-stone-900/5" title={f.name}>
+            {url && kind === "image" ? (
+              <img src={url} alt={f.name} className="size-full object-cover" />
+            ) : url && kind === "video" ? (
+              <video src={url} muted className="size-full object-cover" />
+            ) : (
+              <span className="flex size-full flex-col items-center justify-center gap-1 px-1.5 text-center text-[10px] leading-tight text-stone-500">
+                <FileText className="size-5" />
+                <span className="line-clamp-2 break-all">{f.name}</span>
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                onRemove(f.path);
+              }}
+              aria-label={`Remove ${f.name}`}
+              className="absolute top-1 right-1 grid size-5 place-items-center rounded-full bg-stone-900/70 text-white opacity-90 transition hover:bg-stone-900"
+            >
+              <X className="size-3" />
+            </button>
+          </div>
+        );
+      })}
+      {busy && (
+        <div className="grid size-20 place-items-center rounded-xl bg-stone-50 ring-1 ring-stone-900/5">
+          <Loader2 className="size-5 animate-spin text-stone-400" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** The paperclip button that picks files to attach. */
@@ -145,7 +217,7 @@ export function RichDescription({ text, className }) {
   return (
     <div className={cx("text-sm whitespace-pre-wrap", className)}>
       {parts.map((p, i) => {
-        if (!p.path) return <span key={i}>{p.text.replace(/^\n|\n$/g, "")}</span>;
+        if (!p.path) return <span key={i}>{p.text.replace(/^\n+|\n+$/g, "")}</span>;
         const url = urls.get(p.path);
         const kind = kindOf(p.name);
         if (!url && !loaded) return <span key={i} className="my-2 block h-24 w-40 animate-pulse rounded-xl bg-stone-100" />;

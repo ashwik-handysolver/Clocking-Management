@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Building, Folder, ListChecks, CircleDot } from "lucide-react";
 import { openItem } from "../lib/router";
 import { BILLING, BILLING_LABEL, PARENT_TYPE, PRIORITIES, billingOf, statusChoices, TYPES, TYPE_LABEL, ancestry, clientCycle, dueLimits, dueProblem, pathLabel } from "../store/model";
@@ -6,7 +6,7 @@ import { shortDate, todayKey } from "../lib/time";
 import { DEFAULT_SNAPSHOT_MINUTES, MAX_SNAPSHOT_MINUTES, MIN_SNAPSHOT_MINUTES, snapshotMinutesFor } from "../config";
 import MemberPicker from "./MemberPicker";
 import MicButton from "./MicButton";
-import { AttachButton, useAttachments } from "./Attachments";
+import { AttachButton, AttachmentList, useAttachments } from "./Attachments";
 import { canCreate, canEditAssignees, canSetSnapshotInterval, isAdmin } from "../store/permissions";
 import { useStore } from "../store/store";
 import TagInput from "./TagInput";
@@ -66,8 +66,7 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
   const [errors, setErrors] = useState({});
   const set = (key) => (e) => setValues((v) => ({ ...v, [key]: e?.target ? e.target.value : e }));
   // Pictures, videos and files in the description (button, paste or drop).
-  const descRef = useRef(null);
-  const attach = useAttachments({ value: values.description, onChange: set("description"), textareaRef: descRef });
+  const attach = useAttachments({ value: values.description, onChange: set("description") });
   // Client billing cycle fields unlock once client hours are filled in.
   const cycleOn = values.budgetHours !== "" && Number(values.budgetHours) > 0;
 
@@ -338,13 +337,12 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
           </>
         )}
 
-        <Field label="Description" className="sm:col-span-2" error={attach.error} hint={attach.busy ? "Uploading…" : "Paste, drop or attach pictures, videos and files."}>
+        <Field label="Description" className="sm:col-span-2" error={attach.error} hint="Paste, drop or attach pictures, videos and files (up to 2 MB each).">
           <span className="relative block">
             <textarea
-              ref={descRef}
               {...attach.textareaProps}
-              value={values.description}
-              onChange={set("description")}
+              value={attach.text}
+              onChange={attach.setText}
               rows={3}
               placeholder={work ? "Context, expected outcome, acceptance criteria…" : "Short summary"}
               className={cx(inputClass, "h-auto resize-y py-2 pr-12 pb-10")}
@@ -352,9 +350,10 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
             {/* voice typing */}
             <span className="absolute right-2 bottom-2 flex items-center gap-1">
               <AttachButton busy={attach.busy} onFiles={attach.insert} />
-              <MicButton value={values.description} onChange={set("description")} />
+              <MicButton value={attach.text} onChange={attach.setText} />
             </span>
           </span>
+          <AttachmentList files={attach.files} onRemove={attach.remove} busy={attach.busy} />
         </Field>
       </div>
     </>

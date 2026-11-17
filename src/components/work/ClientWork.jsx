@@ -1,16 +1,19 @@
-import { Archive, BadgeDollarSign, CircleSlash, Folder, Pencil } from "lucide-react";
-import { navigate, openItem } from "../../lib/router";
+import { useState } from "react";
+import { Archive, BadgeDollarSign, ChevronDown, CircleSlash, Folder, Pencil } from "lucide-react";
+import { navigate } from "../../lib/router";
 import { BILLING, BILLING_LABEL, billingOf, progressOf } from "../../store/model";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
-import { Button, Card, EmptyState, ProgressRing, ADD_HINT, cx } from "../ui";
+import { Button, Card, EmptyState, ProgressRing, Select, ADD_HINT, cx } from "../ui";
+import { Collapse } from "../motion";
 import ChildrenList from "./ChildrenList";
 
 /*
- * A client's work on one page: projects are tabs, not another level to click into.
- * "All" lists every project's tasks under a small heading; a project tab shows that project's
- * progress and tasks. Project links (#/work/<projectId>) open this page on that tab.
+ * A client's work on one page. One toolbar row: which project (a dropdown) and billable /
+ * non-billable. "All projects" lists each project as a tile, collapsed until opened; a project
+ * with no tasks in this category just says so. Picking a project shows its progress and tasks.
+ * Project links (#/work/<projectId>) open this page with that project picked.
  */
 export default function ClientWork({ client, projectId, billing = "billable", seconds }) {
   const { index, actions } = useStore();
@@ -37,48 +40,40 @@ export default function ClientWork({ client, projectId, billing = "billable", se
       },
     });
 
-  const tab = (id, label, count) => {
-    const active = (id ?? null) === (project?.id ?? null);
-    return (
-      <button
-        key={id ?? "all"}
-        type="button"
-        role="tab"
-        aria-selected={active}
-        onClick={() => go(id ?? client.id, billing)}
-        className={cx(
-          "flex h-9 shrink-0 items-center gap-2 rounded-full px-3.5 text-sm font-bold whitespace-nowrap transition",
-          active ? "bg-brand-500 text-white shadow-glow" : "bg-stone-100 text-stone-600 hover:bg-stone-200/70",
-        )}
-      >
-        {id && <Folder className="size-3.5" />}
-        {label}
-        <span className={cx("rounded-full px-1.5 text-[11px]", active ? "bg-white/25" : "bg-surface text-stone-500")}>{count}</span>
-      </button>
-    );
-  };
+  const single = project ?? (projects.length === 1 ? projects[0] : null);
 
   return (
     <Card className="p-4 @md:p-5">
-      <div role="tablist" aria-label="Projects" className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin">
-        {projects.length > 1 && tab(null, "All projects", projects.length)}
-        {projects.map((p) => tab(p.id, p.name, tasksIn(p).length))}
-      </div>
+      {projects.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          {projects.length > 1 ? (
+            <div className="w-full sm:w-64">
+              <Select
+                aria-label="Project"
+                value={project?.id ?? ""}
+                onChange={(e) => go(e.target.value || client.id, billing)}
+                options={[{ value: "", label: `All projects (${projects.length})` }, ...projects.map((p) => ({ value: p.id, label: `${p.name} (${tasksIn(p).length})` }))]}
+                className="!h-9"
+              />
+            </div>
+          ) : (
+            <h2 className="flex items-center gap-2 text-[15px] font-extrabold text-stone-900">
+              <Folder className="size-4 text-stone-400" /> {projects[0].name}
+            </h2>
+          )}
+          <span className="flex-1" />
+          <BillingSwitch value={billing} onChange={showBilling} />
+        </div>
+      )}
 
       {!projects.length ? (
         <EmptyState icon={Folder} title="No projects yet" text={admin ? ADD_HINT : undefined} />
-      ) : project || projects.length === 1 ? (
-        <ProjectSection project={project ?? projects[0]} billing={billing} onBilling={showBilling} seconds={seconds} admin={admin} onArchive={archiveProject} />
+      ) : single ? (
+        <ProjectSection project={single} billing={billing} seconds={seconds} admin={admin} onArchive={archiveProject} />
       ) : (
-        <div className="space-y-6">
-          <BillingSwitch value={billing} onChange={showBilling} />
+        <div className="space-y-2">
           {projects.map((p) => (
-            <section key={p.id}>
-              <button type="button" onClick={() => openItem(p.id)} className="mb-2 flex items-center gap-2 text-xs font-extrabold tracking-widest text-stone-400 uppercase hover:text-brand-600">
-                <Folder className="size-3.5" /> {p.name}
-              </button>
-              <ChildrenList item={p} billing={billing} seconds={seconds} />
-            </section>
+            <ProjectTile key={p.id} project={p} tasks={tasksIn(p).length} billing={billing} seconds={seconds} />
           ))}
         </div>
       )}
@@ -86,8 +81,43 @@ export default function ClientWork({ client, projectId, billing = "billable", se
   );
 }
 
+/** A project on "All projects": collapsed to one row until opened. Empty ones just say so. */
+function ProjectTile({ project, tasks, billing, seconds }) {
+  const [open, setOpen] = useState(false);
+  const empty = tasks === 0;
+  return (
+    <section className={cx("rounded-2xl bg-stone-50 transition", open && "ring-1 ring-stone-200")}>
+      <button
+        type="button"
+        onClick={() => !empty && setOpen((v) => !v)}
+        aria-expanded={empty ? undefined : open}
+        disabled={empty}
+        className={cx("flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left", empty ? "cursor-default" : "hover:bg-stone-100")}
+      >
+        <Folder className="size-4 shrink-0 text-stone-400" />
+        <span className="min-w-0 flex-1 truncate text-sm font-bold text-stone-800">{project.name}</span>
+        {empty ? (
+          <span className="text-xs text-stone-400">No {BILLING_LABEL[billing].toLowerCase()} tasks</span>
+        ) : (
+          <>
+            <span className="text-xs text-stone-500 tabular-nums">
+              {tasks} {tasks === 1 ? "task" : "tasks"}
+            </span>
+            <ChevronDown className={cx("size-4 shrink-0 text-stone-400 transition-transform", open && "rotate-180")} />
+          </>
+        )}
+      </button>
+      {!empty && (
+        <Collapse open={open}>
+          <div className="px-2 pb-2">{open && <ChildrenList item={project} billing={billing} seconds={seconds} />}</div>
+        </Collapse>
+      )}
+    </section>
+  );
+}
+
 /** One project's progress and tasks. */
-function ProjectSection({ project, billing, onBilling, seconds, admin, onArchive }) {
+function ProjectSection({ project, billing, seconds, admin, onArchive }) {
   const { index } = useStore();
   const { openItemForm } = useDialogs();
   const prog = progressOf(index, project.id);
@@ -109,7 +139,6 @@ function ProjectSection({ project, billing, onBilling, seconds, admin, onArchive
         )}
       </div>
       {project.description && <p className="px-1 text-sm text-stone-500">{project.description}</p>}
-      <BillingSwitch value={billing} onChange={onBilling} />
       <ChildrenList item={project} billing={billing} seconds={seconds} />
     </div>
   );

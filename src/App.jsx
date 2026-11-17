@@ -143,16 +143,16 @@ function Shell() {
             <div
               className={cx(
                 "grid gap-5 lg:items-start",
-                treeHidden ? "lg:grid-cols-[64px_minmax(0,1fr)]" : "lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]",
+                !selected ? "lg:grid-cols-1" : treeHidden ? "lg:grid-cols-[64px_minmax(0,1fr)]" : "lg:grid-cols-[minmax(300px,360px)_minmax(0,1fr)]",
               )}
             >
-              {treeHidden && (
+              {treeHidden && selected && (
                 <div className="hidden lg:sticky lg:top-[100px] lg:block">
                   <WorkTreeRail onShow={() => setTreeHidden(false)} />
                 </div>
               )}
               {/* On phones the tree is never hidden: it's the way to navigate. */}
-              <div className={cx("lg:sticky lg:top-[100px] lg:flex lg:h-[calc(100vh-116px)] lg:flex-col", selected && "hidden", treeHidden ? "lg:!hidden" : "lg:flex")}>
+              <div className={cx("lg:sticky lg:top-[100px] lg:flex lg:h-[calc(100vh-116px)] lg:flex-col", selected && "hidden", treeHidden || !selected ? "lg:!hidden" : "lg:flex")}>
                 <WorkTree selectedId={treeSelectedId} onHide={() => setTreeHidden(true)} />
               </div>
               <div className={cx("min-w-0", !selected && "hidden lg:block")}>
