@@ -19,7 +19,7 @@ name: Nightly backup
 
 on:
   schedule:
-    - cron: "30 20 * * *" # 20:30 UTC = 02:00 IST
+    - cron: "30 15 * * *" # 15:30 UTC = 21:00 IST
   workflow_dispatch: # "Run workflow" button in the Actions tab
 
 concurrency:
