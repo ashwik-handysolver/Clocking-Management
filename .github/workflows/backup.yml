@@ -4,7 +4,12 @@
 # BACKUP_PASSPHRASE, and upload it to daily/. Sundays also go to weekly/, the 1st of the
 # month also to monthly/. Old copies are removed: 7 days daily, 5 weeks weekly, 1 year monthly.
 #
-# Secrets used: SUPABASE_DB_URL, BACKUP_PASSPHRASE, GDRIVE_SERVICE_ACCOUNT_JSON, GDRIVE_FOLDER_ID.
+# Uploaded files (screenshots, attachments, avatars) are copied as-is to files/<bucket>/,
+# new files only. This step is skipped until the SUPABASE_S3_* secrets are added.
+#
+# Secrets used: SUPABASE_DB_URL, BACKUP_PASSPHRASE, GDRIVE_SERVICE_ACCOUNT_JSON, GDRIVE_FOLDER_ID,
+# and for files: SUPABASE_S3_ENDPOINT, SUPABASE_S3_REGION, SUPABASE_S3_ACCESS_KEY_ID,
+# SUPABASE_S3_SECRET_ACCESS_KEY (Supabase → Storage → S3 Connection).
 #
 # To restore: download a file, then
 #   gpg --decrypt clockwork-YYYY-MM-DD.tar.gz.gpg > backup.tar.gz && tar -xzf backup.tar.gz
@@ -94,5 +99,41 @@ jobs:
           rclone delete gd:monthly --min-age 366d || true
 
           echo "Backups now in the Shared Drive:"
-          rclone lsl gd: | sort -k2
+          rclone lsl gd: --exclude "files/**" | sort -k2
+          rm -f sa.json
+
+      # Uploaded files (screenshots, attachments, profile pictures) from Supabase Storage.
+      # Only files not already in the Drive are copied, so after the first run this is quick.
+      # Files deleted in the app are kept in the backup.
+      - name: Copy uploaded files to Google Drive
+        env:
+          SA: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+          S3_ENDPOINT: ${{ secrets.SUPABASE_S3_ENDPOINT }}
+          S3_REGION: ${{ secrets.SUPABASE_S3_REGION }}
+          S3_KEY: ${{ secrets.SUPABASE_S3_ACCESS_KEY_ID }}
+          S3_SECRET: ${{ secrets.SUPABASE_S3_SECRET_ACCESS_KEY }}
+        run: |
+          if [ -z "$S3_ENDPOINT" ] || [ -z "$S3_REGION" ] || [ -z "$S3_KEY" ] || [ -z "$S3_SECRET" ]; then
+            echo "::warning::Storage secrets not set, skipping uploaded files (database backup is done)."
+            exit 0
+          fi
+          printf '%s' "$SA" > sa.json
+          export RCLONE_CONFIG_GD_TYPE=drive
+          export RCLONE_CONFIG_GD_SCOPE=drive
+          export RCLONE_CONFIG_GD_SERVICE_ACCOUNT_FILE="$PWD/sa.json"
+          export RCLONE_CONFIG_GD_TEAM_DRIVE="$GDRIVE_FOLDER_ID"
+          export RCLONE_CONFIG_SB_TYPE=s3
+          export RCLONE_CONFIG_SB_PROVIDER=Other
+          export RCLONE_CONFIG_SB_ENDPOINT="$S3_ENDPOINT"
+          export RCLONE_CONFIG_SB_REGION="$S3_REGION"
+          export RCLONE_CONFIG_SB_ACCESS_KEY_ID="$S3_KEY"
+          export RCLONE_CONFIG_SB_SECRET_ACCESS_KEY="$S3_SECRET"
+          export RCLONE_CONFIG_SB_FORCE_PATH_STYLE=true
+
+          for bucket in snapshots attachments avatars; do
+            echo "== $bucket"
+            rclone copy "sb:$bucket" "gd:files/$bucket" --ignore-existing --transfers 8 --stats-one-line --stats 30s
+          done
+          echo "Files in the backup:"
+          rclone size gd:files
           rm -f sa.json
