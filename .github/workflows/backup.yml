@@ -1,0 +1,98 @@
+# Nightly backup of the Supabase database to the "Clockwork Backups" Google Shared Drive.
+#
+# Every night: dump the database (roles, structure, data), zip it, encrypt it with
+# BACKUP_PASSPHRASE, and upload it to daily/. Sundays also go to weekly/, the 1st of the
+# month also to monthly/. Old copies are removed: 7 days daily, 5 weeks weekly, 1 year monthly.
+#
+# Secrets used: SUPABASE_DB_URL, BACKUP_PASSPHRASE, GDRIVE_SERVICE_ACCOUNT_JSON, GDRIVE_FOLDER_ID.
+#
+# To restore: download a file, then
+#   gpg --decrypt clockwork-YYYY-MM-DD.tar.gz.gpg > backup.tar.gz && tar -xzf backup.tar.gz
+# and load roles.sql, schema.sql, data.sql into a database with psql (in that order).
+
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 20:30 UTC = 02:00 IST
+  workflow_dispatch: # "Run workflow" button in the Actions tab
+
+concurrency:
+  group: backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+    steps:
+      - name: Check secrets are set
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+          SA: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          missing=""
+          [ -n "$DB" ] || missing="$missing SUPABASE_DB_URL"
+          [ -n "$PASS" ] || missing="$missing BACKUP_PASSPHRASE"
+          [ -n "$SA" ] || missing="$missing GDRIVE_SERVICE_ACCOUNT_JSON"
+          [ -n "$GDRIVE_FOLDER_ID" ] || missing="$missing GDRIVE_FOLDER_ID"
+          if [ -n "$missing" ]; then echo "::error::Missing secrets:$missing"; exit 1; fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Dump the database
+        env:
+          DB: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          mkdir -p dump
+          supabase db dump --db-url "$DB" --role-only -f dump/roles.sql
+          supabase db dump --db-url "$DB" -f dump/schema.sql
+          supabase db dump --db-url "$DB" --data-only --use-copy -f dump/data.sql
+          ls -la dump
+          # A real database is never this small; stop rather than upload an empty backup.
+          [ "$(stat -c %s dump/data.sql)" -gt 1000 ] || { echo "::error::data.sql looks empty"; exit 1; }
+
+      - name: Zip and encrypt
+        env:
+          PASS: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          NAME="clockwork-$(date -u +%F).tar.gz"
+          tar -czf "$NAME" -C dump .
+          printf '%s' "$PASS" > pass.txt
+          gpg --batch --yes --pinentry-mode loopback --passphrase-file pass.txt \
+            --symmetric --cipher-algo AES256 -o "$NAME.gpg" "$NAME"
+          rm -f pass.txt "$NAME"
+          echo "FILE=$NAME.gpg" >> "$GITHUB_ENV"
+          ls -la "$NAME.gpg"
+
+      - name: Install rclone
+        run: curl -fsSL https://rclone.org/install.sh | sudo bash
+
+      - name: Upload to Google Drive
+        env:
+          SA: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          printf '%s' "$SA" > sa.json
+          # The folder ID from the Shared Drive's URL is the Shared Drive itself.
+          export RCLONE_CONFIG_GD_TYPE=drive
+          export RCLONE_CONFIG_GD_SCOPE=drive
+          export RCLONE_CONFIG_GD_SERVICE_ACCOUNT_FILE="$PWD/sa.json"
+          export RCLONE_CONFIG_GD_TEAM_DRIVE="$GDRIVE_FOLDER_ID"
+
+          rclone copyto "$FILE" "gd:daily/$FILE"
+          if [ "$(date -u +%u)" = "7" ]; then rclone copyto "$FILE" "gd:weekly/$FILE"; fi
+          if [ "$(date -u +%d)" = "01" ]; then rclone copyto "$FILE" "gd:monthly/$FILE"; fi
+
+          # Remove old copies (they go to the Shared Drive's trash first).
+          rclone delete gd:daily --min-age 7d || true
+          rclone delete gd:weekly --min-age 36d || true
+          rclone delete gd:monthly --min-age 366d || true
+
+          echo "Backups now in the Shared Drive:"
+          rclone lsl gd: | sort -k2
+          rm -f sa.json
