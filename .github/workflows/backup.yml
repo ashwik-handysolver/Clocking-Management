@@ -46,9 +46,11 @@ jobs:
           [ -n "$GDRIVE_FOLDER_ID" ] || missing="$missing GDRIVE_FOLDER_ID"
           if [ -n "$missing" ]; then echo "::error::Missing secrets:$missing"; exit 1; fi
 
+      # A fixed version: "latest" asks GitHub's API which release is newest, and that
+      # lookup gets rate-limited on shared runners (it failed the 19 Nov run).
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 3.2.0
 
       - name: Dump the database
         env:
