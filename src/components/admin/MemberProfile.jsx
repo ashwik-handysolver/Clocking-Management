@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft, Briefcase, Calendar, Camera, ChevronLeft, ChevronRight, Clock, Copy, Crown, Mail,
+  ArrowLeft, Briefcase, MonitorPause, Calendar, Camera, ChevronLeft, ChevronRight, Clock, Copy, Crown, Mail,
   Pencil, PencilLine, Plus, RotateCcw, Settings2, Timer, Trash, UserMinus, UserRound,
 } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
@@ -17,6 +17,7 @@ import { useDialogs } from "../dialogs";
 import { CountUp, DoneName, useReveal } from "../motion";
 import { Avatar, Button, Card, EmptyState, IconChip, Popover, Select, StatusIcon, cx, inputClass } from "../ui";
 import { Hero, StatStrip, StatTile } from "../work/DashboardParts";
+import { loadSameScreenCounts } from "../../lib/sameScreen";
 import { AdminPage, Segmented } from "./AdminPage";
 import { EditMember, sortedTeam, useMemberActions } from "./TeamPage";
 
@@ -83,6 +84,17 @@ export default function MemberProfile({ memberId }) {
   const [customTo, setCustomTo] = useState(() => todayKey());
   const [assigning, setAssigning] = useState(false);
   const [detailTab, setDetailTab] = useState("projects"); // the tabbed card beside the chart
+  // Same-screen alerts in the last 30 days (their screenshots unchanged for 10+ minutes while clocked in).
+  const [sameScreen, setSameScreen] = useState(null);
+  useEffect(() => {
+    let alive = true;
+    loadSameScreenCounts(Date.now() - 30 * 86_400_000)
+      .then((m) => alive && setSameScreen(m.get(member.id) ?? 0))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [member.id]);
   const [editing, setEditing] = useState(false);
   const revealRef = useReveal();
 
@@ -229,6 +241,12 @@ export default function MemberProfile({ memberId }) {
               {member.createdAt && (
                 <span className="flex items-center gap-1.5">
                   <Calendar className="size-4" /> Joined {formatDate(member.createdAt, { day: "numeric", month: "short", year: "numeric" })}
+                </span>
+              )}
+              {sameScreen != null && (
+                <span className="flex items-center gap-1.5" title="Last 30 days">
+                  <MonitorPause className="size-4" />
+                  {sameScreen} same screen
                 </span>
               )}
               <span className="flex items-center gap-1.5">

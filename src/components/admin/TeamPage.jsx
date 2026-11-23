@@ -1,8 +1,9 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronRight, Crown, Pencil, RotateCcw, Trash, UserMinus, Users } from "lucide-react";
 import { formatHours, startOfDay } from "../../lib/time";
 import { navigate, useRoute } from "../../lib/router";
 import { supabase } from "../../lib/supabase";
+import { loadSameScreenCounts } from "../../lib/sameScreen";
 import { deleteMemberAccount, removeMember } from "../../store/db";
 import { entrySeconds, isDone } from "../../store/model";
 import { useStore } from "../../store/store";
@@ -10,6 +11,21 @@ import { useDialogs } from "../dialogs";
 import { Avatar, Button, Card, EmptyState, Field, Modal, cx, inputClass } from "../ui";
 import { AdminPage } from "./AdminPage";
 import MemberProfile from "./MemberProfile";
+
+/** Same-screen alerts per person in the last 30 days: Map(memberId → count). Empty until loaded. */
+export function useSameScreenCounts() {
+  const [counts, setCounts] = useState(() => new Map());
+  useEffect(() => {
+    let alive = true;
+    loadSameScreenCounts(Date.now() - 30 * 86_400_000)
+      .then((m) => alive && setCounts(m))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return counts;
+}
 
 /*
  * Team (admin): everyone with an account. Edit their name, role and colour, or remove them.
@@ -38,7 +54,9 @@ function TeamList() {
     const d = new Date();
     return startOfDay(new Date(d.getFullYear(), d.getMonth(), 1).getTime());
   }, []);
+  const sameScreen = useSameScreenCounts();
   const statsFor = (m) => ({
+    alerts: sameScreen.get(m.id) ?? 0,
     hours: teamEntries.filter((e) => e.memberId === m.id && e.start >= monthStart).reduce((t, e) => t + entrySeconds(e), 0),
     open: items.filter((i) => i.type === "subtask" && !isDone(i) && (i.assignees ?? []).includes(m.id)).length,
     live: teamEntries.some((e) => e.memberId === m.id && e.end == null),
@@ -195,6 +213,11 @@ function TeamListView({ active, removed, adminCount, statsFor, showRemoved, setS
                     <span>
                       <span className="block font-extrabold text-stone-900 tabular-nums">{s.open}</span>
                       <span className="text-stone-400">open</span>
+                    </span>
+                    {/* Same-screen alerts: their screenshots showed the same screen for 10+ minutes */}
+                    <span title="Last 30 days">
+                      <span className={cx("block font-extrabold tabular-nums", s.alerts ? "text-amber-600" : "text-stone-900")}>{s.alerts}</span>
+                      <span className="text-stone-400">same screen</span>
                     </span>
                   </div>
                   <div className="flex shrink-0 gap-1">

@@ -3,6 +3,7 @@ import { snapshotMinutesFor } from "../config";
 import { DEVICE_ID, acquireLock, lockHeldElsewhere, lockIsLive, readLock, releaseLock, watchLock } from "../lib/clockLock";
 import { startScreenCapture } from "../lib/screenCapture";
 import { flushSnapshots, saveOrQueueSnapshot } from "../lib/snapshotStore";
+import { SAME_SCREEN_MS, fingerprint, logSameScreen, sameScreen, sameScreenAlertsOn } from "../lib/sameScreen";
 import { readBeat, sendBeat } from "../store/db";
 import { ancestry, runningEntryOf, uid } from "../store/model";
 import { useStore } from "../store/store";
@@ -36,6 +37,9 @@ export function ClockProvider({ children }) {
   // account clocks in somewhere else, that new clocking is not this screen's to capture.
   const ownEntry = useRef(null); // entry id, "pending" while clocking in, or null
   const latest = useRef();
+  // Same-screen watch: the last screenshot's fingerprint, when the unchanged stretch began, and
+  // whether this stretch has already been alerted (one alert per stretch).
+  const same = useRef({ entryId: null, print: null, since: 0, alerted: false });
   latest.current = { running, index, name: me.name };
 
   const endCapture = useCallback(() => {
@@ -46,17 +50,49 @@ export function ClockProvider({ children }) {
     releaseLock();
   }, []);
 
+  /** Compares this screenshot with the last one; 10+ minutes unchanged → toast, desktop notification, log. */
+  const checkSameScreen = useCallback(
+    async (blob, entry, takenAt) => {
+      if (!sameScreenAlertsOn()) return;
+      const print = await fingerprint(blob);
+      if (!print) return;
+      const st = same.current;
+      if (st.entryId !== entry.id || !sameScreen(st.print, print)) {
+        same.current = { entryId: entry.id, print, since: takenAt, alerted: false }; // a new stretch starts here
+        return;
+      }
+      st.print = print;
+      if (st.alerted || takenAt - st.since < SAME_SCREEN_MS) return;
+      st.alerted = true;
+      const minutes = Math.round((takenAt - st.since) / 60_000);
+      const text = `Same screen for ${minutes} min`;
+      toast(text);
+      try {
+        if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+          const note = new Notification(text, { tag: "same-screen" });
+          note.onclick = () => (window.focus(), note.close());
+        }
+      } catch {
+        /* the toast still shows */
+      }
+      logSameScreen({ id: uid("act"), memberId: entry.memberId, subtaskId: entry.subtaskId, minutes }).catch((err) => console.warn("Same-screen alert not saved", err));
+    },
+    [toast],
+  );
+
   const shoot = useCallback(async () => {
     const { running: entry } = latest.current;
     if (!session.current || !entry || entry.id !== ownEntry.current) return; // not this tab's clocking
     try {
       const { blob } = await session.current.grab();
+      const takenAt = Date.now();
+      checkSameScreen(blob, entry, takenAt); // runs alongside the upload
       // Offline: kept and uploaded when the connection is back.
-      await saveOrQueueSnapshot({ id: uid("snap"), entryId: entry.id, memberId: entry.memberId, memberName: latest.current.name, takenAt: Date.now(), blob });
+      await saveOrQueueSnapshot({ id: uid("snap"), entryId: entry.id, memberId: entry.memberId, memberName: latest.current.name, takenAt, blob });
     } catch (err) {
       console.warn("Screenshot not uploaded yet", err);
     }
-  }, []);
+  }, [checkSameScreen]);
 
   // Screenshot now, then on the project's interval. Restarts when switching subtasks or when the interval is edited.
   const project = running ? ancestry(index, running.subtaskId).find((x) => x.type === "project") : null;

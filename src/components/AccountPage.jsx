@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Camera, Loader2, Mail, Trash, UserRound } from "lucide-react";
+import { Camera, Loader2, Mail, MonitorPause, Trash, UserRound } from "lucide-react";
+import { sameScreenAlertsOn, setSameScreenAlerts } from "../lib/sameScreen";
 import { removeAvatars, uploadAvatar } from "../store/db";
 import { useStore } from "../store/store";
 import { COLORS } from "./admin/TeamPage";
@@ -205,6 +206,38 @@ function DetailsCard() {
   );
 }
 
+/** Alerts you (toast + desktop notification) when your screen stays the same for 10+ minutes while clocked in. */
+function AlertsCard() {
+  const [on, setOn] = useState(sameScreenAlertsOn);
+  const [perm, setPerm] = useState(() => (typeof Notification === "undefined" ? "unsupported" : Notification.permission));
+  const toggle = () => {
+    setSameScreenAlerts(!on);
+    setOn(!on);
+  };
+  return (
+    <Card className="p-5">
+      <SectionTitle icon={MonitorPause} title="Alerts" />
+      <button type="button" role="switch" aria-checked={on} onClick={toggle} className="flex w-full items-start gap-3 text-left">
+        <span className="min-w-0 flex-1 text-sm font-bold text-stone-800">Same-screen alert</span>
+        <span className={cx("relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors", on ? "bg-brand-500" : "bg-stone-300")}>
+          <span className={cx("absolute top-0.5 left-0.5 size-4 rounded-full bg-white shadow transition-transform", on && "translate-x-4")} />
+        </span>
+      </button>
+      {on && perm !== "granted" && perm !== "unsupported" && (
+        <p className="mt-3 text-xs text-stone-500">
+          {perm === "denied" ? (
+            "Desktop notifications blocked"
+          ) : (
+            <button type="button" onClick={async () => setPerm(await Notification.requestPermission())} className="font-semibold text-brand-700 hover:underline">
+              Allow desktop notifications
+            </button>
+          )}
+        </p>
+      )}
+    </Card>
+  );
+}
+
 export default function AccountPage() {
   return (
     <div className="@container mx-auto max-w-5xl">
@@ -214,6 +247,7 @@ export default function AccountPage() {
         </div>
         <div className="space-y-4">
           <DetailsCard />
+          <AlertsCard />
         </div>
       </div>
     </div>
