@@ -146,6 +146,14 @@ export default function Topbar({ selectedId, page, onOpenMenu }) {
 
   const [searchOpen, setSearchOpen] = useState(false);
   const clocking = Boolean(runningEntryOf(state.entries, me.id));
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     const onKey = (e) => {
@@ -162,8 +170,10 @@ export default function Topbar({ selectedId, page, onOpenMenu }) {
     <>
       <header
         className={cx(
-          // Flat bar on the page itself: a hairline underneath instead of a floating card.
-          "sticky top-0 z-30 -mt-3 flex h-16 items-center gap-2 bg-canvas/90 px-1 backdrop-blur sm:gap-3",
+          // Flat bar on the page: a hairline underneath, and a soft shadow once the page scrolls under it.
+          // Side padding matches the cards' inner padding, so the title lines up with their content.
+          "sticky top-0 z-30 -mt-3 flex h-16 items-center gap-2 border-b border-stone-200/80 bg-canvas/90 px-2 backdrop-blur transition-shadow sm:gap-3 sm:px-4",
+          scrolled && "shadow-[0_6px_16px_-10px_rgb(28_25_23/0.25)]",
         )}
       >
         <ClockingAccent />

@@ -125,23 +125,23 @@ function Shell() {
         <OfflineBanner />
 
         {ADMIN_PAGES.includes(page) ? (
-          <main key={page} className="mt-5 animate-page-in">
+          <main key={page} className="mt-7 animate-page-in">
             {page === "team" ? <TeamPage /> : page === "timesheets" ? <Timesheets /> : page === "reports" ? <Reports /> : page === "screenshots" ? <ScreenshotsPage /> : <ArchivePage />}
           </main>
         ) : page === "my" ? (
-          <main key={page} className="mt-5 animate-page-in">
+          <main key={page} className="mt-7 animate-page-in">
             <MyWork />
           </main>
         ) : page === "dashboard" ? (
-          <main key={page} className="mt-5 animate-page-in">
+          <main key={page} className="mt-7 animate-page-in">
             <Dashboard />
           </main>
         ) : page === "account" ? (
-          <main key={page} className="mt-5 animate-page-in">
+          <main key={page} className="mt-7 animate-page-in">
             <AccountPage />
           </main>
         ) : (
-          <main key={page} className="mt-5 animate-page-in space-y-5">
+          <main key={page} className="mt-7 animate-page-in space-y-5">
             <div
               className={cx(
                 "grid gap-5 lg:items-start",
