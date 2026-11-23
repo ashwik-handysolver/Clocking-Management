@@ -23,23 +23,21 @@ export default function Timesheets() {
   const [tab, setTab] = useState("entries");
   const { openEntryForm } = useDialogs();
   return (
-    <AdminPage
-      title="Timesheets"
-      action={
+    <AdminPage title="Timesheets">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Segmented
+          label="View"
+          value={tab}
+          onChange={setTab}
+          options={[
+            ["entries", "Clockings"],
+            ["history", "Change history"],
+          ]}
+        />
         <Button variant="primary" size="sm" icon={Plus} onClick={() => openEntryForm({})}>
           Log time for someone
         </Button>
-      }
-    >
-      <Segmented
-        label="View"
-        value={tab}
-        onChange={setTab}
-        options={[
-          ["entries", "Clockings"],
-          ["history", "Change history"],
-        ]}
-      />
+      </div>
       {tab === "entries" ? <Entries /> : <ChangeHistory />}
     </AdminPage>
   );

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Bell, BellRing, ChevronDown, ChevronRight, LogOut, Menu, Moon, Search, Square, Sun, Timer } from "lucide-react";
+import { Bell, BellRing, ChevronDown, LogOut, Menu, Moon, Search, Square, Sun, Timer } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { useTheme } from "../../hooks/useTheme";
 import { navigate, openItem } from "../../lib/router";
 import { formatClock } from "../../lib/time";
-import { TYPE_LABEL, ancestry, entrySeconds, runningEntryOf } from "../../store/model";
+import { entrySeconds, runningEntryOf } from "../../store/model";
 import { useStore } from "../../store/store";
 import { useClock } from "../clock";
 import { useDialogs } from "../dialogs";
@@ -13,7 +13,6 @@ import CommandPalette from "./CommandPalette";
 import AddMenu from "./AddMenu";
 import NotificationBell from "./NotificationBell";
 import { desktopNotificationsOn, desktopPermission, sendTestNotification, setDesktopNotifications } from "../Notifications";
-import { Logo } from "./Sidebar";
 
 const PAGE_TITLE = { my: "My work", dashboard: "Dashboard", account: "My account", team: "Team", timesheets: "Timesheets", reports: "Reports", screenshots: "Screenshots", archive: "Archive" };
 
@@ -130,31 +129,16 @@ function ClockingAccent() {
   );
 }
 
-function Crumbs({ selectedId, page }) {
-  const { index } = useStore();
-  const chain = selectedId ? ancestry(index, selectedId) : [];
-  const current = chain.at(-1);
-  return (
-    <div className="min-w-0">
-      <nav className="hidden min-w-0 items-center gap-1 overflow-hidden text-xs font-medium whitespace-nowrap text-stone-400 sm:flex">
-        <button type="button" onClick={() => navigate(page)} className="shrink-0 hover:text-stone-700">
-          {page === "work" ? "Clients & Projects" : "Workspace"}
-        </button>
-        {chain.slice(0, -1).map((a) => (
-          <span key={a.id} className="flex min-w-0 items-center gap-1">
-            <ChevronRight className="size-3 shrink-0" />
-            <button type="button" onClick={() => openItem(a.id)} className="max-w-32 truncate hover:text-stone-700">
-              {a.name}
-            </button>
-          </span>
-        ))}
-      </nav>
-      <p className="truncate text-base font-extrabold tracking-tight text-stone-900">
-        {current ? current.name : page === "work" ? "Overview" : PAGE_TITLE[page] ?? "Overview"}
-        {current && <span className="ml-2 align-middle text-[11px] font-bold text-brand-600 uppercase">{TYPE_LABEL[current.type]}</span>}
-      </p>
-    </div>
-  );
+/** The section you're in. Item pages carry their own name and path, so it isn't repeated here. */
+function PageName({ selectedId, page }) {
+  const title = PAGE_TITLE[page] ?? "Clients & Projects";
+  if (selectedId)
+    return (
+      <button type="button" onClick={() => navigate(page)} className="block max-w-full truncate text-base font-extrabold tracking-tight text-stone-900 hover:text-brand-700">
+        {title}
+      </button>
+    );
+  return <p className="truncate text-base font-extrabold tracking-tight text-stone-900">{title}</p>;
 }
 
 export default function Topbar({ selectedId, page, onOpenMenu }) {
@@ -186,11 +170,8 @@ export default function Topbar({ selectedId, page, onOpenMenu }) {
         <button type="button" onClick={onOpenMenu} aria-label="Open menu" className="grid size-10 shrink-0 place-items-center rounded-xl text-stone-600 hover:bg-stone-100 lg:hidden">
           <Menu className="size-5" />
         </button>
-        <span className="sm:hidden">
-          <Logo compact />
-        </span>
-        <div className="hidden min-w-0 flex-1 sm:block">
-          <Crumbs selectedId={selectedId} page={page} />
+        <div className="min-w-0 flex-1">
+          <PageName selectedId={selectedId} page={page} />
         </div>
 
         <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">

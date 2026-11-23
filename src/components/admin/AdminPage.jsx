@@ -17,13 +17,13 @@ export function AdminPage({ title, text, action, everyone = false, children }) {
   return (
     // @container: the tables inside lay out by this page's width.
     <div className="@container space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3 px-1">
-        <div>
-          <h1 className="text-xl font-extrabold tracking-tight text-stone-900">{title}</h1>
+      <h1 className="sr-only">{title}</h1>
+      {(text || action) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           {text && <p className="text-sm text-stone-500">{text}</p>}
+          {action && <div className="ml-auto">{action}</div>}
         </div>
-        {action}
-      </div>
+      )}
       {children}
     </div>
   );

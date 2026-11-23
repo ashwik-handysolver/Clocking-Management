@@ -58,7 +58,7 @@ export function WorkPage({ client, index, entries, team, projectId }) {
   return (
     <>
       <Card className="flex flex-wrap items-center gap-3 p-4">
-        <h1 className="text-xl font-extrabold tracking-tight text-stone-900">Work</h1>
+        <h1 className="sr-only">Work</h1>
         <Segmented label="Show" value={show} onChange={setShow} options={[["open", "Open"], ["done", "Completed"], ["all", "All"]]} size="sm" />
         <span className="flex-1" />
         {allProjects.length > 1 && (
@@ -239,7 +239,7 @@ export function HoursPage({ client, index, entries, team }) {
     <>
       <Card className="p-4 @md:p-5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-extrabold tracking-tight text-stone-900">Hours</h1>
+          <h1 className="sr-only">Hours</h1>
           <Segmented label="Dates" value={range} onChange={pick} options={ranges} size="sm" />
           <span className="flex-1" />
           <Button variant="soft" size="sm" icon={Download} disabled={!rows.length || busy} onClick={downloadPdf}>
@@ -378,7 +378,7 @@ export function ScreenshotsPage({ index, entries, team }) {
     <>
       <Card className="p-4 @md:p-5">
         <div className="mb-3 flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-extrabold tracking-tight text-stone-900">Screenshots</h1>
+          <h1 className="sr-only">Screenshots</h1>
           <Segmented
             label="Dates"
             value={range}
