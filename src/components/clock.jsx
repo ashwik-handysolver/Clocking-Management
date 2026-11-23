@@ -3,7 +3,7 @@ import { snapshotMinutesFor } from "../config";
 import { DEVICE_ID, acquireLock, lockHeldElsewhere, lockIsLive, readLock, releaseLock, watchLock } from "../lib/clockLock";
 import { startScreenCapture } from "../lib/screenCapture";
 import { flushSnapshots, saveOrQueueSnapshot } from "../lib/snapshotStore";
-import { SAME_SCREEN_MS, fingerprint, logSameScreen, sameScreen, sameScreenAlertsOn } from "../lib/sameScreen";
+import { SAME_SCREEN_SHOTS, fingerprint, logSameScreen, sameScreen, sameScreenAlertsOn } from "../lib/sameScreen";
 import { readBeat, sendBeat } from "../store/db";
 import { ancestry, runningEntryOf, uid } from "../store/model";
 import { useStore } from "../store/store";
@@ -39,7 +39,7 @@ export function ClockProvider({ children }) {
   const latest = useRef();
   // Same-screen watch: the last screenshot's fingerprint, when the unchanged stretch began, and
   // whether this stretch has already been alerted (one alert per stretch).
-  const same = useRef({ entryId: null, print: null, since: 0, alerted: false });
+  const same = useRef({ entryId: null, print: null, since: 0, count: 0, alerted: false });
   latest.current = { running, index, name: me.name };
 
   const endCapture = useCallback(() => {
@@ -50,7 +50,7 @@ export function ClockProvider({ children }) {
     releaseLock();
   }, []);
 
-  /** Compares this screenshot with the last one; 10+ minutes unchanged → toast, desktop notification, log. */
+  /** Compares this screenshot with the last one; 4 identical in a row → toast, desktop notification, log. */
   const checkSameScreen = useCallback(
     async (blob, entry, takenAt) => {
       if (!sameScreenAlertsOn()) return;
@@ -58,11 +58,12 @@ export function ClockProvider({ children }) {
       if (!print) return;
       const st = same.current;
       if (st.entryId !== entry.id || !sameScreen(st.print, print)) {
-        same.current = { entryId: entry.id, print, since: takenAt, alerted: false }; // a new stretch starts here
+        same.current = { entryId: entry.id, print, since: takenAt, count: 1, alerted: false }; // a new stretch starts here
         return;
       }
       st.print = print;
-      if (st.alerted || takenAt - st.since < SAME_SCREEN_MS) return;
+      st.count += 1;
+      if (st.alerted || st.count < SAME_SCREEN_SHOTS) return;
       st.alerted = true;
       const minutes = Math.round((takenAt - st.since) / 60_000);
       const text = `Same screen for ${minutes} min`;

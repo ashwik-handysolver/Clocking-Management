@@ -1,7 +1,7 @@
 import { supabase } from "./supabase";
 
 /*
- * "Same screen" alert: while you're clocked in, if every screenshot for 10 minutes or more shows the
+ * "Same screen" alert: while you're clocked in, if 4 screenshots in a row show the
  * same screen, you get a toast and a desktop notification, and the admin sees it counted.
  *
  * Screens are compared as small greyscale fingerprints (64×36 pixels). The bottom strip (taskbar
@@ -9,7 +9,7 @@ import { supabase } from "./supabase";
  * Each alert is saved in the activity log (kind "same_screen"), so it also shows in Team activity.
  */
 
-export const SAME_SCREEN_MS = 10 * 60_000;
+export const SAME_SCREEN_SHOTS = 4; // identical screenshots in a row before the alert
 const W = 64;
 const H = 36;
 const IGNORE_BOTTOM = 0.08; // taskbar / dock with its clock
@@ -37,8 +37,18 @@ export async function fingerprint(blob) {
 export function sameScreen(a, b) {
   if (!a || !b || a.length !== b.length) return false;
   let changed = 0;
-  for (let i = 0; i < a.length; i++) if (Math.abs(a[i] - b[i]) > PIXEL_DIFF) changed++;
-  return changed / a.length < CHANGED_SHARE;
+  const perRow = new Array(H).fill(0);
+  for (let i = 0; i < a.length; i++)
+    if (Math.abs(a[i] - b[i]) > PIXEL_DIFF) {
+      changed++;
+      perRow[(i / W) | 0]++;
+    }
+  const share = changed / a.length;
+  if (share < CHANGED_SHARE) return true;
+  // A ticking clock or running timer (e.g. Clockwork's own) changes one thin strip only:
+  // still the same screen. Changes across several rows are real activity.
+  const busyRows = perRow.filter((n) => n >= 3).length;
+  return share < 0.03 && busyRows <= 2;
 }
 
 /* The on/off switch (Account page), remembered in this browser. On by default. */
