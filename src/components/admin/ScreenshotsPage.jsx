@@ -8,7 +8,7 @@ import { deleteSnapshot, listSnapshots, snapshotUrls } from "../../store/db";
 import { useDialogs } from "../dialogs";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
-import { Avatar, Card, EmptyState, Field, Popover, Select, cx, inputClass } from "../ui";
+import { Avatar, Card, EmptyState, Popover, Select, cx, inputClass } from "../ui";
 import { AdminPage, Pager, Segmented } from "./AdminPage";
 import RangeArrows from "../RangeArrows";
 
@@ -236,7 +236,7 @@ export default function ScreenshotsPage() {
 
   return (
     <AdminPage title={admin ? "Screenshots" : "My screenshots"} everyone>
-      <Card className="p-4 @md:p-5">
+      <Card className="p-3 @md:p-4">
         {scope && (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-2xl bg-brand-50 px-3 py-2 text-sm">
             <span className="font-semibold text-stone-600">{scope.type === "task" ? "Task" : "Subtask"}:</span>
@@ -252,8 +252,9 @@ export default function ScreenshotsPage() {
             </button>
           </div>
         )}
-        {/* Quick ranges */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
+        {/* All filters in one row: range + arrows, then client, subtask, person and dates.
+            No labels: each control's own text says what it is ("All clients", "Everyone"). */}
+        <div className="flex flex-wrap items-center gap-2">
           <Segmented
             label="Date range"
             value={range}
@@ -276,10 +277,10 @@ export default function ScreenshotsPage() {
               }}
             />
           )}
-        </div>
-        <div className={cx("grid gap-3 @lg:grid-cols-2", admin ? "@4xl:grid-cols-5" : "@3xl:grid-cols-4")}>
-          <Field label="Client">
+          <span className="mx-1 hidden h-6 w-px bg-stone-200 sm:block" aria-hidden="true" />
+          <div className="w-full sm:w-44">
             <Select
+              aria-label="Client"
               value={clientId}
               onChange={(e) => {
                 setClientId(e.target.value);
@@ -287,11 +288,10 @@ export default function ScreenshotsPage() {
                 setPage(0);
               }}
               options={[{ value: "", label: "All clients" }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
+              className="!h-9"
             />
-          </Field>
-          {/* Not a <label>: the picker is a button + list */}
-          <div className="min-w-0">
-            <span className="mb-1.5 block text-xs font-bold text-stone-600">Subtask</span>
+          </div>
+          <div className="w-full min-w-0 sm:w-56" aria-label="Subtask">
             <SubtaskPicker
               value={subtaskId}
               options={subtaskOptions}
@@ -303,16 +303,15 @@ export default function ScreenshotsPage() {
             />
           </div>
           {admin && (
-            <Field label="Team member">
-              <Select value={memberId} onChange={resetPage(setMemberId)} options={[{ value: "", label: "Everyone" }, ...team.map((m) => ({ value: m.id, label: m.name }))]} />
-            </Field>
+            <div className="w-full sm:w-40">
+              <Select aria-label="Team member" value={memberId} onChange={resetPage(setMemberId)} options={[{ value: "", label: "Everyone" }, ...team.map((m) => ({ value: m.id, label: m.name }))]} className="!h-9" />
+            </div>
           )}
-          <Field label="From">
-            <input type="date" value={range === "all" ? "" : from} max={to} onChange={resetPage((v) => (setFrom(v), setRange("custom")))} className={inputClass} />
-          </Field>
-          <Field label="To">
-            <input type="date" value={range === "all" ? "" : to} min={from} onChange={resetPage((v) => (setTo(v), setRange("custom")))} className={inputClass} />
-          </Field>
+          <span className="flex items-center gap-1.5 text-xs text-stone-500">
+            <input type="date" aria-label="From" value={range === "all" ? "" : from} max={to} onChange={resetPage((v) => (setFrom(v), setRange("custom")))} className={cx(inputClass, "!h-9 w-auto")} />
+            to
+            <input type="date" aria-label="To" value={range === "all" ? "" : to} min={from} onChange={resetPage((v) => (setTo(v), setRange("custom")))} className={cx(inputClass, "!h-9 w-auto")} />
+          </span>
         </div>
       </Card>
 
@@ -333,7 +332,7 @@ export default function ScreenshotsPage() {
           // Loading: pale placeholders shaped like a couple of sessions
           <div aria-hidden="true" className="space-y-3">
             {[0, 1].map((n) => (
-              <div key={n} className="animate-skeleton rounded-2xl bg-stone-50/80 p-3 ring-1 ring-stone-900/5">
+              <div key={n} className="animate-skeleton py-3">
                 <div className="mb-2.5 flex items-center gap-3">
                   <span className="size-7 rounded-full bg-stone-200" />
                   <span className="h-3 w-48 rounded-full bg-stone-200" />
@@ -355,14 +354,14 @@ export default function ScreenshotsPage() {
                 <h3 className="mb-2 text-xs font-extrabold tracking-widest text-stone-400 uppercase">
                   {formatDate(day, { weekday: "short", day: "numeric", month: "short" })}
                 </h3>
-                <ul className="space-y-3">
+                <ul className="divide-y divide-stone-100">
                   {list.map((x) => {
                     const member = memberById.get(x.memberId);
                     const isOpen = expanded.has(x.key);
                     const shown = shownShots(x);
                     const hidden = x.shots.length - shown.length;
                     return (
-                      <li key={x.key} className="rounded-2xl bg-stone-50/80 p-3 ring-1 ring-stone-900/5">
+                      <li key={x.key} className="py-3">
                         {/* Session: who, what (subtask + project), when, how long, how many */}
                         <button type="button" onClick={() => toggle(x.key)} aria-expanded={isOpen} className="group mb-2.5 flex w-full items-center gap-3 text-left">
                           <Avatar member={member} size="sm" />
@@ -402,7 +401,7 @@ export default function ScreenshotsPage() {
                                 <button
                                   type="button"
                                   onClick={() => (last ? toggle(x.key) : setOpen({ key: x.key, i: x.shots.indexOf(s) }))}
-                                  className="group relative block w-full overflow-hidden rounded-xl bg-stone-100 text-left ring-1 ring-stone-900/5 transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-brand-200"
+                                  className="group relative block w-full overflow-hidden rounded-xl bg-stone-100 text-left transition hover:opacity-90"
                                 >
                                   <Thumb url={urls.get(s.path)} />
                                   {last ? (
@@ -480,7 +479,7 @@ function SubtaskPicker({ value, options, index, onChange }) {
       align="left"
       className="w-80 max-w-[calc(100vw-2rem)]"
       trigger={({ toggle, open }) => (
-        <button type="button" onClick={toggle} aria-expanded={open} className={cx(inputClass, "flex items-center gap-2 text-left")}>
+        <button type="button" onClick={toggle} aria-expanded={open} className={cx(inputClass, "flex !h-9 items-center gap-2 text-left")}>
           <span className={cx("min-w-0 flex-1 truncate", !selected && "text-stone-500")}>{selected?.name ?? "All subtasks"}</span>
           <ChevronDown className={cx("size-4 shrink-0 text-stone-400 transition-transform", open && "rotate-180")} />
         </button>

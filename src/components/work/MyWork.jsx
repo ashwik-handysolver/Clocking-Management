@@ -1,13 +1,14 @@
 import { useMemo, useState } from "react";
-import { CircleCheck, ListTodo, Search, Timer, TriangleAlert, UserRoundCheck } from "lucide-react";
+import { CircleCheck, ListTodo, Search, UserRoundCheck } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { openItem } from "../../lib/router";
 import { dueInfo, formatHours, startOfDay } from "../../lib/time";
-import { assigneesOf, statusChoices, entrySeconds, isDone, pathLabel, rollupSeconds, runningEntryOf } from "../../store/model";
+import { ancestry, assigneesOf, statusChoices, entrySeconds, isDone, pathLabel, rollupSeconds, runningEntryOf } from "../../store/model";
 import { useStore } from "../../store/store";
-import { AvatarStack, Card, EmptyState, IconChip, PillSelect, PriorityLabel, STATUS_STYLE, cx } from "../ui";
+import { AvatarStack, Card, EmptyState, PillSelect, STATUS_STYLE, Select, cx } from "../ui";
 import { DoneName } from "../motion";
 import { ClockButton } from "./ClockCard";
+import ItemMenu, { useWorkActions } from "./ItemMenu";
 import { DUE_TONE } from "./WorkProperties";
 
 const PRIORITY_RANK = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
@@ -44,6 +45,7 @@ export default function MyWork() {
   const { items, index, entries, me, actions, memberById } = useStore();
   const [view, setView] = useState("to");
   const [query, setQuery] = useState("");
+  const [clientId, setClientId] = useState("");
   const running = runningEntryOf(entries, me.id);
   const now = useNow(Boolean(running), 30_000);
   const seconds = useMemo(() => rollupSeconds(index, entries), [index, entries]);
@@ -57,10 +59,14 @@ export default function MyWork() {
   const list = doneView
     ? items.filter((i) => i.type === "subtask" && isDone(i) && (assignedToMe(i) || assignedByMe(i)))
     : mine.filter((i) => !isDone(i));
+  // Client filter: only the clients that appear in this tab's list.
+  const clientOf = (s) => ancestry(index, s.id).find((x) => x.type === "client");
+  const clients = [...new Map(list.map(clientOf).filter(Boolean).map((c) => [c.id, c])).values()].sort((a, b) => a.name.localeCompare(b.name));
+  const client = clients.some((c) => c.id === clientId) ? clientId : ""; // a client missing from this tab means "All"
   const q = query.trim().toLowerCase();
   const namesOf = (s) => assigneesOf(s).map((id) => memberById.get(id)?.name ?? "").join(" ").toLowerCase();
   const matches = list.filter(
-    (s) => !q || s.name.toLowerCase().includes(q) || pathLabel(index, s.id).toLowerCase().includes(q) || ((byMe || doneView) && namesOf(s).includes(q)),
+    (s) => (!client || clientOf(s)?.id === client) && (!q || s.name.toLowerCase().includes(q) || pathLabel(index, s.id).toLowerCase().includes(q) || ((byMe || doneView) && namesOf(s).includes(q))),
   );
 
   const groups = new Map(GROUPS.map((g) => [g.key, []]));
@@ -70,25 +76,14 @@ export default function MyWork() {
     if (key !== "done") group.sort((a, b) => (a.due || "9999").localeCompare(b.due || "9999") || (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)); // no due date → last
 
   const open = mine.filter((s) => !isDone(s)).length;
-  const overdue = mine.filter((s) => !isDone(s) && (dueInfo(s.due).days ?? 0) < 0).length;
   const todayStart = startOfDay(now);
   const today = entries.filter((e) => e.start >= todayStart).reduce((sum, e) => sum + entrySeconds(e, now), 0);
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Stat icon={ListTodo} tone="brand" label={byMe ? "Open, assigned by you" : "Open subtasks"} value={open} />
-        <Stat icon={overdue ? TriangleAlert : CircleCheck} tone={overdue ? "red" : "emerald"} label="Overdue" value={overdue} />
-        {byMe ? (
-          <Stat icon={CircleCheck} tone="violet" label="Completed" value={mine.length - open} />
-        ) : (
-          <Stat icon={Timer} tone="violet" label="Your time today" value={formatHours(today)} />
-        )}
-      </div>
 
       <Card className="@container p-4 @md:p-5">
         <div className="mb-4 flex flex-wrap items-center gap-3">
-          <h1 className="text-xl font-extrabold tracking-tight text-stone-900">My work</h1>
           <div role="tablist" aria-label="Which subtasks" className="flex rounded-full bg-stone-100 p-1">
             {VIEWS.map((v) => (
               <button
@@ -106,7 +101,30 @@ export default function MyWork() {
               </button>
             ))}
           </div>
+          {/* The page's numbers, as one quiet line beside the tabs */}
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 tabular-nums">
+            <span>
+              <span className="font-bold text-stone-900">{open}</span> {byMe ? "open, by you" : "open"}
+            </span>
+            <span>
+              <span className="font-bold text-stone-900">{mine.length - open}</span> completed
+            </span>
+            <span>
+              <span className="font-bold text-stone-900">{formatHours(today)}</span> today
+            </span>
+          </p>
           <span className="flex-1" />
+          {clients.length > 1 && (
+            <div className="w-full sm:w-48">
+              <Select
+                aria-label="Client"
+                value={client}
+                onChange={(e) => setClientId(e.target.value)}
+                options={[{ value: "", label: "All clients" }, ...clients.map((c) => ({ value: c.id, label: c.name }))]}
+                className="!h-10"
+              />
+            </div>
+          )}
           <div className="relative w-full sm:w-64">
             <Search className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-stone-400" />
             <input
@@ -136,7 +154,7 @@ export default function MyWork() {
                   {g.label}
                   <span className="rounded-full bg-stone-100 px-1.5 text-[11px] text-stone-500">{groups.get(g.key).length}</span>
                 </h2>
-                <ul className="space-y-1.5">
+                <ul className="divide-y divide-stone-100">
                   {groups.get(g.key).map((s) => (
                     <Row key={s.id} sub={s} byMe={byMe || (doneView && !assignedToMe(s))} secs={seconds.get(s.id) ?? 0} onStatus={(status) => actions.updateItem(s.id, { status })} />
                   ))}
@@ -160,7 +178,7 @@ function Row({ sub, byMe, secs, onStatus }) {
       tabIndex={0}
       onClick={() => openItem(sub.id)}
       onKeyDown={(e) => e.key === "Enter" && e.target === e.currentTarget && openItem(sub.id)}
-      className="group flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl bg-stone-50 p-3 transition hover:bg-brand-50/70 @lg:flex-nowrap"
+      className="group flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-2 px-2 py-2.5 transition-colors hover:bg-stone-50 @lg:flex-nowrap"
     >
       {byMe ? (
         <span title={`Assigned to ${people.map((m) => m.name).join(", ")}`}>
@@ -170,7 +188,7 @@ function Row({ sub, byMe, secs, onStatus }) {
         <ClockButton subtask={sub} />
       )}
       <div className="min-w-0 flex-1">
-        <p className={cx("truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(sub) && "!text-stone-400")}>
+        <p className={cx("truncate text-sm font-bold text-stone-800", isDone(sub) && "!text-stone-400")}>
           <DoneName item={sub}>{sub.name}</DoneName>
         </p>
         <p className="truncate text-xs text-stone-400">
@@ -179,23 +197,16 @@ function Row({ sub, byMe, secs, onStatus }) {
         </p>
       </div>
       <div className="ml-12 flex basis-full items-center gap-2.5 text-xs @lg:ml-0 @lg:basis-auto">
-        <span className={cx("font-semibold whitespace-nowrap", DUE_TONE[due.tone])}>{due.label}</span>
+        {sub.due && <span className={cx("font-semibold whitespace-nowrap", DUE_TONE[due.tone])}>{due.label}</span>}
         {secs > 0 && <span className="whitespace-nowrap text-stone-400">{formatHours(secs)}</span>}
-        <PriorityLabel priority={sub.priority} compact />
-        <PillSelect label="Status" value={sub.status} options={statusChoices(sub.status)} styleFor={(s) => STATUS_STYLE[s]?.pill} onChange={onStatus} className="ring-1 ring-stone-900/5" />
+        <PillSelect label="Status" value={sub.status} options={statusChoices(sub.status)} styleFor={(s) => STATUS_STYLE[s]?.pill} onChange={onStatus} />
+        <RowMenu item={sub} />
       </div>
     </li>
   );
 }
 
-function Stat({ icon, tone, label, value }) {
-  return (
-    <Card className="flex items-center gap-3 p-4">
-      <IconChip icon={icon} tone={tone} />
-      <div>
-        <p className="text-xs font-semibold text-stone-500">{label}</p>
-        <p className="text-2xl font-extrabold tracking-tight text-stone-900">{value}</p>
-      </div>
-    </Card>
-  );
+/** The ⋯ menu on a row: edit, screenshots, log time (admin), delete. */
+function RowMenu({ item }) {
+  return <ItemMenu actions={useWorkActions(item)} />;
 }

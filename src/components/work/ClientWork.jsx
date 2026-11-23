@@ -8,6 +8,7 @@ import { useDialogs } from "../dialogs";
 import { Button, Card, EmptyState, ProgressRing, Select, ADD_HINT, cx } from "../ui";
 import { Collapse } from "../motion";
 import ChildrenList from "./ChildrenList";
+import ItemMenu from "./ItemMenu";
 
 /*
  * A client's work on one page. One toolbar row: which project (a dropdown) and billable /
@@ -71,7 +72,7 @@ export default function ClientWork({ client, projectId, billing = "billable", se
       ) : single ? (
         <ProjectSection project={single} billing={billing} seconds={seconds} admin={admin} onArchive={archiveProject} />
       ) : (
-        <div className="space-y-2">
+        <div className="divide-y divide-stone-100">
           {projects.map((p) => (
             <ProjectTile key={p.id} project={p} tasks={tasksIn(p).length} billing={billing} seconds={seconds} />
           ))}
@@ -86,13 +87,13 @@ function ProjectTile({ project, tasks, billing, seconds }) {
   const [open, setOpen] = useState(false);
   const empty = tasks === 0;
   return (
-    <section className={cx("rounded-2xl bg-stone-50 transition", open && "ring-1 ring-stone-200")}>
+    <section>
       <button
         type="button"
         onClick={() => !empty && setOpen((v) => !v)}
         aria-expanded={empty ? undefined : open}
         disabled={empty}
-        className={cx("flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left", empty ? "cursor-default" : "hover:bg-stone-100")}
+        className={cx("flex w-full items-center gap-3 px-2 py-3 text-left transition-colors", empty ? "cursor-default" : "hover:bg-stone-50")}
       >
         <Folder className="size-4 shrink-0 text-stone-400" />
         <span className="min-w-0 flex-1 truncate text-sm font-bold text-stone-800">{project.name}</span>
@@ -109,7 +110,7 @@ function ProjectTile({ project, tasks, billing, seconds }) {
       </button>
       {!empty && (
         <Collapse open={open}>
-          <div className="px-2 pb-2">{open && <ChildrenList item={project} billing={billing} seconds={seconds} />}</div>
+          <div className="pb-3 pl-7">{open && <ChildrenList item={project} billing={billing} seconds={seconds} />}</div>
         </Collapse>
       )}
     </section>
@@ -124,18 +125,20 @@ function ProjectSection({ project, billing, seconds, admin, onArchive }) {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl bg-stone-50 px-3 py-2.5">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <ProgressRing value={prog.pct} tone="green" size={36} stroke={4} />
         <span className="text-xs text-stone-400">
           {prog.done}/{prog.total} done
         </span>
         {admin && (
-          <span className="ml-auto flex gap-1">
-            <Button size="sm" variant="ghost" icon={Pencil} onClick={() => openItemForm({ id: project.id })}>
-              Edit project
-            </Button>
-            <Button size="sm" variant="ghost" iconOnly icon={Archive} aria-label="Archive project" title="Archive project" onClick={() => onArchive(project)} />
-          </span>
+          <ItemMenu
+            label="Project actions"
+            className="ml-auto"
+            actions={[
+              { icon: Pencil, label: "Edit project", onClick: () => openItemForm({ id: project.id }) },
+              { icon: Archive, label: "Archive project", onClick: () => onArchive(project) },
+            ]}
+          />
         )}
       </div>
       {project.description && <p className="px-1 text-sm text-stone-500">{project.description}</p>}

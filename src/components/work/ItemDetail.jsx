@@ -1,178 +1,32 @@
 import { useMemo, useState } from "react";
 import {
-  Archive, ArrowLeft, CalendarCheck, Camera, CircleCheck, KeyRound, ListChecks, Mail, Pencil, Timer, Trash, TriangleAlert, UserRound,
+  Archive, ArrowLeft, KeyRound, Mail, Pencil, Plus, Trash, UserRound,
 } from "lucide-react";
 import { navigate, openItem } from "../../lib/router";
-import { dueInfo, formatHours, todayKey } from "../../lib/time";
+import { shortDate } from "../../lib/time";
 import {
-  TYPE_LABEL, ancestry, assigneesOf, descendants, entrySeconds, isDone, isOverdue, isWork, pathLabel, progressOf, rollupSeconds,
+  TYPE_LABEL, ancestry, descendants, isDone, rollupSeconds,
 } from "../../store/model";
 import { canArchive, canCreate, canDeleteItem, canEditDetails, isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { useDialogs } from "../dialogs";
 import { TYPE_ICON } from "../ItemForm";
-import { AvatarStack, Button, Card, IconChip, Modal, ProgressRing, StatusIcon, TONE, Watermark, cx } from "../ui";
+import { Avatar, Button, Card, cx } from "../ui";
 import { DoneName } from "../motion";
 import ChildrenList from "./ChildrenList";
 import { RichDescription } from "../Attachments";
 import ClientAccessDialog from "../admin/ClientAccessDialog";
+import AddWizard from "../AddSubtaskWizard";
 import ClientWork from "./ClientWork";
-import ClockCard from "./ClockCard";
-import WorkProperties, { Prop } from "./WorkProperties";
+import ItemMenu, { useWorkActions } from "./ItemMenu";
 import { useDeleteItem } from "./useDeleteItem";
-
-function Stat({ icon, color = "brand", label, value, sub, valueClass, aside, onClick }) {
-  const Box = onClick ? "button" : "div";
-  return (
-    <Box
-      {...(onClick && { type: "button", onClick })}
-      className={cx(
-        "relative overflow-hidden rounded-2xl bg-gradient-to-br p-3.5 text-left ring-1 ring-stone-900/5",
-        TONE[color].bg,
-        onClick && "transition hover:-translate-y-0.5 hover:shadow-soft hover:ring-stone-900/10",
-      )}
-    >
-      <Watermark icon={icon} tone={color} className="!-right-3 !-bottom-5 !size-20" />
-      <div className="relative flex items-center gap-3">
-        <IconChip icon={icon} tone={color} size="sm" />
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-bold tracking-wide text-stone-400 uppercase">{label}</p>
-          <p className={cx("text-xl leading-tight font-extrabold tracking-tight text-stone-900", valueClass)}>{value}</p>
-          {sub && <div className="truncate text-xs text-stone-500">{sub}</div>}
-        </div>
-        {aside}
-      </div>
-    </Box>
-  );
-}
-
-/** The overdue tasks and subtasks under an item, latest due first. Click one to open it. */
-function OverdueDialog({ items, onClose }) {
-  const { index, memberById } = useStore();
-  const sorted = [...items].sort((a, b) => a.due.localeCompare(b.due));
-  return (
-    <Modal title={`Overdue (${items.length})`} icon={TriangleAlert} size="lg" onClose={onClose}>
-      <ul className="-mx-2 space-y-0.5">
-        {sorted.map((x) => {
-          const due = dueInfo(x.due);
-          const people = assigneesOf(x).map((id) => memberById.get(id)).filter(Boolean);
-          return (
-            <li key={x.id}>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  openItem(x.id);
-                }}
-                className="group flex w-full items-center gap-3 rounded-xl px-2 py-2.5 text-left hover:bg-red-50/70"
-              >
-                <StatusIcon status={x.status} className="size-[18px] shrink-0" />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-stone-800 group-hover:text-red-700">{x.name}</span>
-                  <span className="block truncate text-xs text-stone-400">{pathLabel(index, x.id).replaceAll(" / ", " › ")}</span>
-                </span>
-                {people.length > 0 && <AvatarStack members={people} max={3} />}
-                <span className="w-24 shrink-0 text-right text-xs font-bold text-red-600">{due.label}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ul>
-    </Modal>
-  );
-}
-
-/** Roll-up numbers for a client, project or task. */
-function Summary({ item, seconds }) {
-  const { index, memberById, me, teamEntries } = useStore();
-  const [showOverdue, setShowOverdue] = useState(false);
-  const work = descendants(index, item.id).slice(1).filter(isWork);
-  const prog = progressOf(index, item.id);
-  // Same units as Progress: subtasks, plus tasks that have no subtasks.
-  const open = prog.total - prog.done;
-  const today = todayKey();
-  const overdueItems = work.filter((x) => isOverdue(x, today));
-  const overdue = overdueItems.length;
-  // Admin on a client page: everyone's time on it, instead of their own.
-  const teamView = isAdmin(me) && item.type === "client";
-  const teamTime = useMemo(() => {
-    if (!teamView) return null;
-    const ids = new Set(descendants(index, item.id).map((x) => x.id));
-    const mineHere = teamEntries.filter((e) => ids.has(e.subtaskId));
-    const secs = mineHere.reduce((s, e) => s + entrySeconds(e), 0);
-    const clockers = [...new Set(mineHere.map((e) => e.memberId))].map((id) => memberById.get(id)).filter(Boolean);
-    return { secs, clockers };
-  }, [teamView, index, item.id, teamEntries, memberById]);
-  // On a task, "your time" covers only the subtasks assigned to you, measured against their estimates.
-  const mySubtasks = item.type === "task" ? work.filter((x) => x.type === "subtask" && assigneesOf(x).includes(me.id)) : [];
-  const logged = item.type === "task" ? mySubtasks.reduce((s, x) => s + (seconds.get(x.id) ?? 0), 0) : seconds.get(item.id) ?? 0;
-  const estimate = mySubtasks.reduce((s, x) => s + (x.estimate ?? 0), 0);
-  // People = assignees only; who clocked time is private.
-  const people = [...new Set(work.flatMap(assigneesOf))]
-    .map((id) => memberById.get(id))
-    .filter(Boolean);
-
-  return (
-    <div className="space-y-2">
-      {item.type === "task" && <WorkProperties item={item} />}
-      {item.type === "client" && (
-        <dl className="grid grid-cols-1 gap-2 rounded-3xl bg-stone-50 p-2 @md:grid-cols-2">
-          <Prop icon={UserRound} label="Contact person">{item.contactName || <span className="text-stone-400">Not set</span>}</Prop>
-          <Prop icon={Mail} label="Email">
-            {item.contactEmail ? (
-              <a href={`mailto:${item.contactEmail}`} className="block truncate text-brand-700 hover:underline">
-                {item.contactEmail}
-              </a>
-            ) : (
-              <span className="text-stone-400">Not set</span>
-            )}
-          </Prop>
-        </dl>
-      )}
-
-      <div className="grid grid-cols-1 gap-2 rounded-3xl bg-stone-50 p-2 @md:grid-cols-2 @4xl:grid-cols-4">
-        <Stat icon={CircleCheck} color="emerald" label="Progress" value={`${prog.done}/${prog.total}`} aside={<ProgressRing value={prog.pct} tone="green" />} />
-        <Stat icon={ListChecks} color="amber" label="Open" value={open} sub={`of ${prog.total} items`} />
-        <Stat
-          icon={overdue ? TriangleAlert : CalendarCheck}
-          color={overdue ? "red" : "sky"}
-          label="Overdue"
-          value={overdue}
-          valueClass={overdue ? "!text-red-600" : undefined}
-          sub={overdue ? "Needs attention" : "All on track"}
-          onClick={overdue ? () => setShowOverdue(true) : undefined}
-        />
-        {teamView ? (
-          <Stat
-            icon={Timer}
-            color="brand"
-            label="Team time"
-            value={formatHours(teamTime.secs)}
-            sub={teamTime.clockers.length ? `by ${teamTime.clockers.length} ${teamTime.clockers.length === 1 ? "person" : "people"}` : "No time yet"}
-            aside={teamTime.clockers.length ? <AvatarStack members={teamTime.clockers} max={3} /> : null}
-          />
-        ) : (
-          <Stat
-            icon={Timer}
-            color="brand"
-            label="Your time"
-            value={formatHours(logged)}
-            sub={estimate ? `of ${estimate}h estimated for you` : item.type === "task" ? "No subtasks assigned to you" : people.length ? `${people.length} people assigned` : "No time yet"}
-            aside={!estimate && people.length ? <AvatarStack members={people} max={3} /> : estimate ? <ProgressRing value={(logged / (estimate * 3600)) * 100} tone={logged > estimate * 3600 ? "red" : "brand"} /> : null}
-          />
-        )}
-      </div>
-      {showOverdue && <OverdueDialog items={overdueItems} onClose={() => setShowOverdue(false)} />}
-    </div>
-  );
-}
 
 /**
  * Full page for one item. Clients show their projects as tabs (`projectId` picks a tab);
  * tasks list their subtasks as rows that expand in place.
  */
-export default function ItemDetail({ item, projectId = null, billing = "billable" }) {
-  const { entries, teamEntries, index, actions, me } = useStore();
+export default function ItemDetail({ item, projectId = null, billing = "billable", focusSubtaskId = null }) {
+  const { entries, teamEntries, index, actions, me, memberById } = useStore();
   const { openItemForm, confirm, toast } = useDialogs();
   // Work with logged time can't be deleted by team members (the database checks everyone's time).
   const hasTime = useMemo(() => {
@@ -181,6 +35,7 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
   }, [index, item.id, teamEntries]);
   const isClient = item.type === "client";
   const [accessOpen, setAccessOpen] = useState(false); // the Client access dialog
+  const [addingSubtask, setAddingSubtask] = useState(false); // Add subtask, with this task picked
 
   // Your own time only (store/permissions.js).
   const seconds = useMemo(() => rollupSeconds(index, entries), [index, entries]);
@@ -202,92 +57,105 @@ export default function ItemDetail({ item, projectId = null, billing = "billable
 
   // Warns with the clockings and screenshots that go too.
   const askDelete = useDeleteItem();
-  const remove = () => askDelete(item, { after: () => (item.parentId ? openItem(item.parentId) : navigate("work")) });
+  const goUp = () => (item.parentId ? openItem(item.parentId) : navigate("work"));
+  const remove = () => askDelete(item, { after: goUp });
+  // Tasks get the usual work actions; clients and projects are managed by the admin (edit, client access, archive).
+  const workActions = useWorkActions(item.type === "task" || item.type === "subtask" ? item : null, { afterDelete: goUp });
+  const menu = workActions.length
+    ? workActions
+    : [
+        { icon: Pencil, label: "Edit", onClick: () => openItemForm({ id: item.id }), hidden: !(canCreate(me, item.type) && canEditDetails(me, item)) },
+        { icon: KeyRound, label: "Client access", onClick: () => setAccessOpen(true), hidden: !(isClient && isAdmin(me)) },
+        { icon: Archive, label: "Archive", onClick: archive, hidden: !canArchive(me, item) },
+        { icon: Trash, label: "Delete", danger: true, onClick: remove, hidden: canArchive(me, item) || !canDeleteItem(me, item, hasTime) },
+      ];
 
   return (
     // @container: everything inside lays out by this view's width, not the screen's.
     <div className="@container space-y-4">
       {accessOpen && <ClientAccessDialog client={item} onClose={() => setAccessOpen(false)} />}
+      {addingSubtask && <AddWizard kind="subtask" contextId={item.id} onClose={() => setAddingSubtask(false)} toast={toast} />}
       <Card className="relative overflow-hidden p-2">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-44 bg-gradient-to-br from-brand-50 via-brand-50/40 to-transparent" />
-        <div className="pointer-events-none absolute -top-16 -right-12 size-56 rounded-full bg-brand-100/50" />
-        <Icon aria-hidden="true" strokeWidth={1.25} className="pointer-events-none absolute top-4 right-6 size-40 rotate-[-10deg] text-brand-500/[0.06]" />
-        <div className="relative px-4 pt-4 pb-5 @md:px-5">
-          <div className="mb-4 flex items-center justify-between gap-2">
+        {/* One compact header: title with its type beside it, actions on the same line, path underneath */}
+        <div className="relative px-4 pt-4 pb-4 @md:px-5">
+          <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+            <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-2">
               <Button
                 size="sm"
                 variant="ghost"
+                iconOnly
                 icon={ArrowLeft}
+                aria-label="Back"
+                title="Back"
                 onClick={() => (parent ? openItem(parent.id) : navigate("work"))}
-                className={item.type === "subtask" ? undefined : "lg:hidden"}
-              >
-                {item.type === "subtask" ? "Task" : "Back"}
-              </Button>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-2.5 py-1 text-[11px] font-extrabold tracking-wide text-brand-700 uppercase">
-                <Icon className="size-3.5" />
-                {TYPE_LABEL[item.type]}
-              </span>
-              {parent && (
-                <button type="button" onClick={() => openItem(parent.id)} className="hidden min-w-0 truncate text-xs font-medium text-stone-400 hover:text-stone-700 @lg:block">
-                  in {ancestry(index, parent.id).map((a) => a.name).join(" / ")}
-                </button>
-              )}
-            </div>
-            <div className="flex shrink-0 gap-1.5">
-              {/* This task's (or subtask's) screenshots: everyone's for the admin, your own for team members. */}
-              {(item.type === "task" || item.type === "subtask") && (
-                <Button size="sm" variant="soft" icon={Camera} onClick={() => navigate("screenshots", null, { [item.type]: item.id })}>
-                  View screenshots
-                </Button>
-              )}
-              {/* Who from this client may sign in to the view-only client portal. */}
-              {isClient && isAdmin(me) && (
-                <Button size="sm" variant="soft" icon={KeyRound} onClick={() => setAccessOpen(true)}>
-                  Client access
-                </Button>
-              )}
-              {/* Clients and projects are managed by the admin, who archives them instead of deleting. */}
-              {canCreate(me, item.type) && canEditDetails(me, item) && (
-                <Button size="sm" icon={Pencil} onClick={() => openItemForm({ id: item.id })}>
-                  Edit
-                </Button>
-              )}
-              {canArchive(me, item) ? (
-                <Button size="sm" variant="ghost" icon={Archive} onClick={archive} title="Hide this client and keep its time">
-                  Archive
-                </Button>
-              ) : (
-                canDeleteItem(me, item, hasTime) && <Button size="sm" variant="dangerGhost" iconOnly icon={Trash} aria-label="Delete" title="Delete" onClick={remove} />
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col items-start gap-4 @xl:flex-row @xl:items-end @xl:justify-between">
-            <div className="min-w-0">
-              <h1 className={cx("text-[28px] leading-tight font-extrabold tracking-tight break-words text-stone-900", isDone(item) && "!text-stone-400")}>
+                className="lg:hidden"
+              />
+              <h1 className={cx("min-w-0 text-xl leading-tight font-extrabold tracking-tight break-words text-stone-900", isDone(item) && "!text-stone-400")}>
                 <DoneName item={item}>{item.name}</DoneName>
               </h1>
-              {item.description && <RichDescription text={item.description} className="mt-2 max-w-2xl leading-relaxed text-stone-500" />}
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-extrabold tracking-wide text-brand-700 uppercase">
+                <Icon className="size-3" />
+                {TYPE_LABEL[item.type]}
+              </span>
+              {isClient && (item.contactName || item.contactEmail) && (
+                <span className="flex min-w-0 items-center gap-3 text-xs text-stone-500">
+                  {item.contactName && (
+                    <span className="flex min-w-0 items-center gap-1">
+                      <UserRound className="size-3.5 shrink-0 text-stone-400" />
+                      <span className="truncate">{item.contactName}</span>
+                    </span>
+                  )}
+                  {item.contactEmail && (
+                    <a href={`mailto:${item.contactEmail}`} className="flex min-w-0 items-center gap-1 hover:text-brand-700">
+                      <Mail className="size-3.5 shrink-0 text-stone-400" />
+                      <span className="truncate">{item.contactEmail}</span>
+                    </a>
+                  )}
+                </span>
+              )}
             </div>
-            {/* Everything is added from the header's + button. */}
+            {parent && (
+              <button type="button" onClick={() => openItem(parent.id)} className="mt-0.5 block max-w-full truncate text-left text-xs font-medium text-stone-400 hover:text-stone-700">
+                in {ancestry(index, parent.id).map((a) => a.name).join(" / ")}
+                {item.type === "task" && item.due && <span className="ml-1.5">· Due {shortDate(item.due)}</span>}
+              </button>
+            )}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {item.type === "task" && (
+                <>
+                  {canCreate(me, "subtask") && (
+                    <Button size="sm" variant="soft" iconOnly icon={Plus} aria-label="Add subtask" title="Add subtask" onClick={() => setAddingSubtask(true)} />
+                  )}
+                  <span title={`Created by ${memberById.get(item.createdBy)?.name ?? "—"}`}>
+                    <Avatar member={memberById.get(item.createdBy)} size="sm" />
+                  </span>
+                </>
+              )}
+              <ItemMenu actions={menu} />
+            </div>
           </div>
+          {item.description && <RichDescription text={item.description} className="mt-2 max-w-2xl leading-relaxed text-stone-500" />}
         </div>
 
-        <div className="relative">{item.type === "subtask" ? <WorkProperties item={item} /> : <Summary item={item} seconds={seconds} />}</div>
       </Card>
-
-      {item.type === "subtask" && <ClockCard subtask={item} />}
 
       {isClient && <ClientWork client={item} projectId={projectId} billing={billing} seconds={seconds} />}
 
       {item.type === "task" && (
         <Card className="p-4 @md:p-5">
-          <h2 className="mb-3 flex items-center gap-2 text-base font-extrabold tracking-tight text-stone-900">
-            Subtasks
-            <span className="rounded-full bg-brand-50 px-2 py-px text-xs font-bold text-brand-700">{childCount}</span>
-          </h2>
-          <ChildrenList item={item} seconds={seconds} />
+          <ChildrenList
+            item={item}
+            seconds={seconds}
+            focusId={focusSubtaskId}
+            heading={
+              <h2 className="mr-1 flex items-center gap-2 text-base font-extrabold tracking-tight text-stone-900">
+                Subtasks
+                <span className="rounded-full bg-brand-50 px-2 py-px text-xs font-bold text-brand-700">{childCount}</span>
+              </h2>
+            }
+          />
         </Card>
       )}
     </div>

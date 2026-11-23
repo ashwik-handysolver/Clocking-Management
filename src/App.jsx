@@ -75,7 +75,9 @@ function Shell() {
   const routeItem = page === "work" && route.id ? index.get(route.id) : null;
   // Projects aren't a page of their own: they open as a tab on their client's page.
   const projectId = routeItem?.type === "project" ? routeItem.id : null;
-  const selected = projectId ? index.get(routeItem.parentId) : routeItem;
+  // Subtasks have no page of their own either: they open expanded on their task's page.
+  const focusSubtaskId = routeItem?.type === "subtask" ? routeItem.id : null;
+  const selected = projectId || focusSubtaskId ? index.get(routeItem.parentId) : routeItem;
   // A project's tasks show one billing category at a time, picked by ?billing= (default billable).
   const billing = route.params.billing === "non-billable" ? "non-billable" : "billable";
   // The tree shows clients and tasks only, so a subtask highlights its task.
@@ -152,11 +154,11 @@ function Shell() {
                 </div>
               )}
               {/* On phones the tree is never hidden: it's the way to navigate. */}
-              <div className={cx("lg:sticky lg:top-[100px] lg:flex lg:h-[calc(100vh-116px)] lg:flex-col", selected && "hidden", treeHidden || !selected ? "lg:!hidden" : "lg:flex")}>
+              <div className={cx("lg:sticky lg:top-[100px] lg:flex lg:max-h-[calc(100vh-116px)] lg:flex-col", selected && "hidden", treeHidden || !selected ? "lg:!hidden" : "lg:flex")}>
                 <WorkTree selectedId={treeSelectedId} onHide={() => setTreeHidden(true)} />
               </div>
               <div className={cx("min-w-0", !selected && "hidden lg:block")}>
-                {selected ? <ItemDetail key={selected.id} item={selected} projectId={projectId} billing={billing} /> : <WorkOverview />}
+                {selected ? <ItemDetail key={selected.id} item={selected} projectId={projectId} billing={billing} focusSubtaskId={focusSubtaskId} /> : <WorkOverview />}
               </div>
             </div>
           </main>

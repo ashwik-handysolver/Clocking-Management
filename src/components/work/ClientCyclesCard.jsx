@@ -133,7 +133,7 @@ export default function ClientCyclesCard({ entries, now }) {
           <div style={{ minWidth: cycles.length * 64 }}>
             <div className="relative" style={{ height: PLOT_H }} onMouseLeave={() => setHover(null)}>
               {ticks.map((t) => (
-                <div key={t} aria-hidden="true" className={cx("absolute inset-x-0 border-t", t ? "border-dashed border-stone-200/80" : "border-stone-300")} style={{ bottom: `${pct(t)}%` }} />
+                <div key={t} aria-hidden="true" className={cx("absolute inset-x-0 border-t", t ? "border-transparent" : "border-stone-300")} style={{ bottom: `${pct(t)}%` }} />
               ))}
               {/* Target */}
               <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 z-10 border-t-2 border-dashed border-stone-500" style={{ bottom: `${pct(target)}%` }}>

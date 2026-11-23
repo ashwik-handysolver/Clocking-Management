@@ -29,7 +29,7 @@ const STATUS = {
 export default function ClientHoursCard({ entries, now, className }) {
   const { allIndex: index, state, memberById } = useStore();
   const [all, setAll] = useState(false);
-  const [openId, setOpenId] = useState(undefined); // undefined = the most urgent client starts open
+  const [openId, setOpenId] = useState(null); // all clients start collapsed
   const [editingHolidays, setEditingHolidays] = useState(false);
   const today = todayKey();
   const holidays = useMemo(() => new Set((state.holidays ?? []).map((h) => h.day)), [state.holidays]);
@@ -59,12 +59,11 @@ export default function ClientHoursCard({ entries, now, className }) {
     })
     .sort(byUrgency);
   const visible = all ? rows : rows.slice(0, SHOWN);
-  const open = openId === undefined ? rows[0]?.client.id : openId;
+  const open = openId;
   const needsLook = rows.filter((r) => r.stats.status === "over" || r.stats.status === "behind").length;
 
   return (
     <Card className={cx("relative flex flex-col overflow-hidden p-5", className)}>
-      <div className="pointer-events-none absolute -top-24 -right-20 size-72 rounded-full bg-[radial-gradient(closest-side,rgb(255_220_196/0.55),transparent)]" />
       <div className="relative mb-4 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2.5 text-base font-extrabold tracking-tight text-stone-900">
           <IconChip icon={Gauge} tone="brand" size="sm" />
@@ -79,11 +78,10 @@ export default function ClientHoursCard({ entries, now, className }) {
       {!rows.length ? (
         <div className="relative flex flex-1 flex-col items-center justify-center gap-3 py-6 text-center">
           <p className="text-sm font-bold text-stone-700">No client has hours set yet</p>
-          <p className="max-w-xs text-xs text-stone-500">Add a client with the + button at the top, or edit one, and fill in Client hours.</p>
         </div>
       ) : (
         <>
-          <ul className="relative space-y-2">
+          <ul className="relative divide-y divide-stone-100">
             {visible.map((r) => (
               <ClientItem key={r.client.id} {...r} open={open === r.client.id} onToggle={() => setOpenId(open === r.client.id ? null : r.client.id)} />
             ))}
@@ -118,9 +116,9 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
   const panelId = `client-hours-${client.id}`;
 
   return (
-    <li className={cx("overflow-hidden rounded-2xl ring-1 transition", open ? "bg-gradient-to-br from-brand-50/70 to-surface ring-brand-200" : "bg-stone-50/80 ring-stone-900/5 hover:ring-brand-200")}>
+    <li>
       {/* Summary row */}
-      <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={panelId} className="flex w-full items-center gap-3 px-3.5 py-3 text-left">
+      <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={panelId} className="flex w-full items-center gap-3 px-1 py-3 text-left transition-colors hover:bg-stone-50">
         <span className={cx("size-2.5 shrink-0 rounded-full", st.dot)} />
         <span className="min-w-0 flex-1">
           <span className="flex items-center justify-between gap-2">
@@ -139,7 +137,7 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
 
       {/* Details */}
       <Collapse open={open}>
-        <div id={panelId} className="space-y-3 px-3.5 pb-3.5">
+        <div id={panelId} className="space-y-3 pb-4 pl-6">
           <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs">
             <span className="flex items-center gap-1 text-stone-500">
               <CalendarClock className="size-3.5" />
@@ -157,7 +155,7 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
           </div>
           {s.nonBillableUsed > 0 && <p className="-mt-1.5 text-[11px] font-semibold text-stone-400">+{formatHours(s.nonBillableUsed)} non-billable, not counted</p>}
 
-          <dl className="grid grid-cols-2 gap-2">
+          <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
             <Stat label={over ? "Over by" : "Hours left"} value={formatHours(over ? s.used - s.budget : s.left)} danger={over} />
             <Stat label="Working days left" value={s.daysLeft} sub={`of ${s.totalDays}`} />
             <Stat label="Needed per day" value={s.left ? formatHours(s.neededPerDay) : "—"} sub={s.left ? `${formatHours(s.neededPerWeek)} per week` : "All used"} />
@@ -170,7 +168,7 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
           </dl>
 
           {s.status !== "upcoming" && (
-            <div className="rounded-xl bg-surface px-3 py-2.5 ring-1 ring-stone-900/5">
+            <div>
               {s.todayIsWorkday ? (
                 <>
                   <div className="flex items-baseline justify-between gap-2 text-xs">
@@ -205,12 +203,13 @@ function ClientItem({ client, cycle, stats: s, team, open, onToggle }) {
   );
 }
 
+/** One number in an opened client: plain label / value, no box. "strong" marks the number to act on (accent colour). */
 function Stat({ label, value, sub, danger, strong }) {
   return (
-    <div className={cx("rounded-xl px-2.5 py-2", strong ? "palette-fixed bg-gradient-to-br from-brand-500 to-brand-600 text-white shadow-glow" : "bg-surface ring-1 ring-stone-900/5")}>
-      <dt className={cx("text-[10px] font-bold tracking-wide uppercase", strong ? "text-white/80" : "text-stone-400")}>{label}</dt>
-      <dd className={cx("text-base font-extrabold tabular-nums", strong ? "text-white" : danger ? "text-red-600" : "text-stone-900")}>{value}</dd>
-      {sub && <dd className={cx("truncate text-[10px] font-semibold", strong ? "text-white/80" : "text-stone-400")}>{sub}</dd>}
+    <div className="min-w-0">
+      <dt className="truncate text-xs font-semibold text-stone-500">{label}</dt>
+      <dd className={cx("text-base font-extrabold tabular-nums", danger ? "text-red-600" : strong ? "text-brand-600" : "text-stone-900")}>{value}</dd>
+      {sub && <dd className="truncate text-xs text-stone-400">{sub}</dd>}
     </div>
   );
 }

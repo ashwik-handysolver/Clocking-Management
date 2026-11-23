@@ -1,25 +1,21 @@
 import { useState } from "react";
-import { Calendar, CircleDot, Flag, Hourglass, Lock, Tag, UserRound } from "lucide-react";
+import { Calendar, CircleDot, Lock, Tag, UserRound } from "lucide-react";
 import MemberPicker from "../MemberPicker";
 import { dueInfo, shortDate } from "../../lib/time";
 import { PRIORITIES, statusChoices, assigneesOf, hasAssignee, dueLimits, dueProblem, isDone } from "../../store/model";
 import { canChangeStatus, canEditAssignees, canEditDetails } from "../../store/permissions";
 import { useStore } from "../../store/store";
-import { Avatar, PRIORITY_STYLE, PillSelect, STATUS_STYLE, cx } from "../ui";
+import { Avatar, PillSelect, STATUS_STYLE, cx } from "../ui";
 import { DonePop } from "../motion";
 
 export const DUE_TONE = { danger: "text-red-600", warning: "text-amber-600", default: "text-stone-500", muted: "text-stone-400" };
 
-/** One labelled cell in the properties panel. */
+/** One label / value pair in a properties grid: plain text, no box. */
 export function Prop({ icon: Icon, label, children, className }) {
   return (
-    <div className={cx("min-w-0 rounded-2xl bg-surface p-3 ring-1 ring-stone-900/5", className)}>
-      <dt className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold tracking-wide text-stone-400 uppercase">
-        {Icon && (
-          <span className="grid size-5 place-items-center rounded-md bg-brand-50 text-brand-500">
-            <Icon className="size-3" strokeWidth={2.5} />
-          </span>
-        )}
+    <div className={cx("min-w-0", className)}>
+      <dt className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-stone-500">
+        {Icon && <Icon className="size-3.5 text-stone-400" aria-hidden />}
         {label}
       </dt>
       <dd className="min-w-0 text-sm font-semibold text-stone-800">{children}</dd>
@@ -43,7 +39,12 @@ export function PersonLabel({ value, title }) {
   );
 }
 
-export default function WorkProperties({ item }) {
+/**
+ * An item's details as label / value pairs. People come first, then status and priority; the due
+ * date only shows once one is set (set it from Edit). `compact` (an opened subtask row): no
+ * dividers and no Status, since the row already shows it.
+ */
+export default function WorkProperties({ item, compact = false }) {
   const { actions, me, state } = useStore();
   const { max: maxDue, parentType, min: minDue, childType } = dueLimits(state.items, item);
   const [dueError, setDueError] = useState("");
@@ -52,72 +53,60 @@ export default function WorkProperties({ item }) {
   const locked = !canEditDetails(me, item); // assigned to you by someone else: status only
 
   return (
-    <dl className="grid grid-cols-2 gap-2 rounded-3xl bg-stone-50 p-2 @2xl:grid-cols-4">
-      <Prop icon={CircleDot} label="Status">
-        <DonePop item={item}>
-          <PillSelect
-            label="Status"
-            value={item.status}
-            options={statusChoices(item.status)}
-            styleFor={(s) => STATUS_STYLE[s]?.pill}
-            onChange={(status) => update({ status })}
-            readOnly={!canChangeStatus(me, item)}
-          />
-        </DonePop>
-      </Prop>
-      <Prop icon={Flag} label="Priority">
-        {locked ? (
-          <span className={cx("inline-flex rounded-full bg-stone-100 px-3 py-1 text-xs font-bold", PRIORITY_STYLE[item.priority])}>{item.priority ?? "—"}</span>
-        ) : (
-          <PillSelect
-            label="Priority"
-            value={item.priority}
-            options={PRIORITIES}
-            styleFor={(p) => cx("bg-stone-100", PRIORITY_STYLE[p])}
-            onChange={(priority) => update({ priority })}
-          />
-        )}
-      </Prop>
-      <Prop icon={Calendar} label="Due date">
-        <input
-          type="date"
-          aria-label="Due date"
-          value={item.due ?? ""}
-          disabled={locked}
-          max={maxDue ?? undefined}
-          min={minDue ?? undefined}
-          onChange={(e) => {
-            const v = e.target.value;
-            const problem = dueProblem(state.items, item, v);
-            if (problem) return setDueError(problem);
-            setDueError("");
-            update({ due: v });
-          }}
-          className="w-full cursor-pointer rounded-lg bg-transparent outline-none hover:bg-stone-100 disabled:cursor-default disabled:hover:bg-transparent"
-        />
-        {dueError ? (
-          <span className="block text-xs font-semibold text-red-600">{dueError}</span>
-        ) : (
-          item.due && <span className={cx("block text-xs font-bold", DUE_TONE[due.tone])}>{due.label}</span>
-        )}
-        {maxDue && !dueError && <span className="block text-[11px] text-stone-400 first-letter:uppercase">{parentType} due {shortDate(maxDue)}</span>}
-        {minDue && !dueError && <span className="block text-[11px] text-stone-400">Latest {childType} due {shortDate(minDue)}</span>}
-      </Prop>
-      <Prop icon={Hourglass} label="Estimate">
-        {item.estimate ? `${item.estimate} hours` : <span className="font-medium text-stone-400">Not set</span>}
-      </Prop>
+    <dl className={cx("grid grid-cols-2 gap-x-6 gap-y-3 @2xl:grid-cols-4", compact ? "py-1" : "gap-y-4 border-y border-stone-100 py-4")}>
       {hasAssignee(item) ? (
         <>
-          <Prop icon={UserRound} label="Assigned to" className="col-span-1 @2xl:col-span-2">
+          <Prop icon={UserRound} label="Assigned to">
             <MemberPicker variant="inline" value={assigneesOf(item)} onChange={(assignees) => update({ assignees })} readOnly={!canEditAssignees(me, item)} />
           </Prop>
-          <Prop icon={UserRound} label="Assigned by" className="col-span-1 @2xl:col-span-2">
+          <Prop icon={UserRound} label="Assigned by">
             <PersonLabel value={item.assignedBy} />
           </Prop>
         </>
       ) : (
-        <Prop icon={UserRound} label="Created by" className="col-span-2 @2xl:col-span-4">
+        <Prop icon={UserRound} label="Created by">
           <PersonLabel value={item.createdBy} />
+        </Prop>
+      )}
+      {!compact && (
+        <Prop icon={CircleDot} label="Status">
+          <DonePop item={item}>
+            <PillSelect
+              label="Status"
+              value={item.status}
+              options={statusChoices(item.status)}
+              styleFor={(s) => STATUS_STYLE[s]?.pill}
+              onChange={(status) => update({ status })}
+              readOnly={!canChangeStatus(me, item)}
+            />
+          </DonePop>
+        </Prop>
+      )}
+      {item.due && (
+        <Prop icon={Calendar} label="Due date">
+          <input
+            type="date"
+            aria-label="Due date"
+            value={item.due ?? ""}
+            disabled={locked}
+            max={maxDue ?? undefined}
+            min={minDue ?? undefined}
+            onChange={(e) => {
+              const v = e.target.value;
+              const problem = dueProblem(state.items, item, v);
+              if (problem) return setDueError(problem);
+              setDueError("");
+              update({ due: v || null });
+            }}
+            className="w-full cursor-pointer rounded-lg bg-transparent outline-none hover:bg-stone-100 disabled:cursor-default disabled:hover:bg-transparent"
+          />
+          {dueError ? (
+            <span className="block text-xs font-semibold text-red-600">{dueError}</span>
+          ) : (
+            <span className={cx("block text-xs font-bold", DUE_TONE[due.tone])}>{due.label}</span>
+          )}
+          {maxDue && !dueError && <span className="block text-[11px] text-stone-400 first-letter:uppercase">{parentType} due {shortDate(maxDue)}</span>}
+          {minDue && !dueError && <span className="block text-[11px] text-stone-400">Latest {childType} due {shortDate(minDue)}</span>}
         </Prop>
       )}
       {item.tags?.length > 0 && (

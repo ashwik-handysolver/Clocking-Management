@@ -2,24 +2,24 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Camera, ChevronLeft, ChevronRight, Clock, Flame, ListChecks, PencilLine } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { navigate, openItem } from "../../lib/router";
-import { addDays, formatDate, formatHours, formatTime, fromDateKey, startOfDay, startOfWeek, toDateKey } from "../../lib/time";
-import { assigneesOf, entrySeconds, isDone, pathLabel } from "../../store/model";
-import { creatorOf, isAdmin } from "../../store/permissions";
+import { addDays, formatDate, formatHours, formatTime, fromDateKey, startOfDay, startOfWeek, timeAgo, toDateKey } from "../../lib/time";
+import { entrySeconds, isDone, pathLabel } from "../../store/model";
+import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import AdminDashboard from "./AdminDashboard";
 import ClientCyclesCard from "./ClientCyclesCard";
 import { loadClientHoursEntries } from "../../store/db";
+import { ClockButton } from "./ClockCard";
 import { Hero, HeroStat } from "./DashboardParts";
 import { Button, Card, EmptyState, IconChip, StatusIcon, cx, inputClass } from "../ui";
 import { Segmented as SharedSegmented } from "../admin/AdminPage";
-import { DoneName, Fire, useReveal } from "../motion";
+import { Fire, useReveal } from "../motion";
 
 /*
  * Personal dashboard: only the signed-in user's own time (store/permissions.js).
  * Every chart is a single series in the brand hue, so no categorical palette is needed.
  */
 
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri"]; // working days only
 const RECENT = 5; // sessions shown at first, and added per "Load more"
 
 /** Seconds of `entries` that fall inside [from, to), clipping entries that cross the edges. */
@@ -49,16 +49,20 @@ function SectionTitle({ icon, title, children }) {
 }
 
 const MAX_CUSTOM_DAYS = 92; // a custom range is cut to about three months so the bars stay readable
+const TARGET_HOURS = 8; // a full working day, drawn as the dashed target line
 
-/** Working days (Mon–Fri) from `first` to `last` (inclusive), as chart slots. */
-function workingDaysBetween(first, last, short) {
+/**
+ * Chart slots from `first` to `last` (inclusive): every Mon–Fri, plus a Saturday or Sunday only
+ * when it has time on it, so weekend work shows up and counts in the total.
+ */
+function workingDaysBetween(first, last, short, entries, now) {
   const out = [];
   for (let day = startOfDay(first); day <= last && out.length < MAX_CUSTOM_DAYS; day = addDays(day, 1)) {
     const wd = new Date(day).getDay();
-    if (wd === 0 || wd === 6) continue;
+    if ((wd === 0 || wd === 6) && !secondsBetween(entries, day, addDays(day, 1), now)) continue;
     out.push({
       start: day,
-      label: short ? DAY_NAMES[wd - 1] : String(new Date(day).getDate()),
+      label: short ? formatDate(day, { weekday: "short" }) : String(new Date(day).getDate()),
       name: formatDate(day, { weekday: "short", day: "numeric", month: "short" }),
     });
   }
@@ -81,8 +85,8 @@ function WeekChart({ entries, now }) {
   let first, last, title;
   if (mode === "week") {
     first = addDays(startOfWeek(now), offset * 7);
-    last = addDays(first, 4);
-    title = offset === 0 ? "This week" : offset === -1 ? "Last week" : `${formatDate(first)} – ${formatDate(last)}`;
+    last = addDays(first, 6); // Sat and Sun only appear when they have time
+    title = offset === 0 ? "This week" : offset === -1 ? "Last week" : `${formatDate(first)} – ${formatDate(addDays(first, 4))}`;
   } else if (mode === "month") {
     const d = new Date(now);
     first = new Date(d.getFullYear(), d.getMonth() + offset, 1).getTime();
@@ -94,10 +98,14 @@ function WeekChart({ entries, now }) {
     title = from === to ? formatDate(first, { weekday: "long", day: "numeric", month: "short" }) : `${formatDate(first)} – ${formatDate(last)}`;
   }
   const weekdays = mode === "week" || (mode === "custom" && last - first < 7 * 24 * 3600 * 1000);
-  const slots = workingDaysBetween(first, last, weekdays);
+  const slots = workingDaysBetween(first, last, weekdays, entries, now);
   const todayIdx = slots.findIndex((x) => x.start === startOfDay(now));
   const days = slots.map((x) => secondsBetween(entries, x.start, addDays(x.start, 1), now));
-  const max = Math.max(...days, 4 * 3600); // keep short days from looking full
+  // Fixed scale: at least the 8h target, rounded up to an even number of hours, so the
+  // same bar height means the same hours from one period to the next.
+  const topHours = Math.max(TARGET_HOURS, Math.ceil(Math.max(0, ...days) / 3600 / 2) * 2);
+  const max = topHours * 3600;
+  const ticks = [0, topHours / 4, topHours / 2, (topHours * 3) / 4, topHours];
   const total = days.reduce((a, b) => a + b, 0);
   const gap = slots.length > 10 ? "gap-0.5 sm:gap-1" : "gap-2 sm:gap-4";
   const atNow = offset >= 0; // no stepping into the future
@@ -131,11 +139,32 @@ function WeekChart({ entries, now }) {
       </div>
       {!slots.length && <p className="py-14 text-center text-sm text-stone-400">No working days in these dates</p>}
       {slots.length > 0 && (
-      <div className="relative">
-        {/* Recessive grid: a line at the max and at half */}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-40 border-t border-dashed border-stone-200" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-20 border-t border-dashed border-stone-100" />
-        <div key={`${mode}${offset}${from}${to}`} className={cx("flex h-40 items-end", gap)} onMouseLeave={() => setHover(null)}>
+      <div className="flex gap-2">
+        {/* y-axis: hours */}
+        <div aria-hidden="true" className="relative h-40 w-7 shrink-0 text-right text-[11px] font-semibold text-stone-400 tabular-nums">
+          {ticks.map((h) => (
+            <span key={h} className="absolute right-0 translate-y-1/2" style={{ bottom: `${(h / topHours) * 100}%` }}>
+              {+h.toFixed(1)}h
+            </span>
+          ))}
+        </div>
+      <div className="relative min-w-0 flex-1">
+        {/* Recessive grid at each tick, a solid baseline, and the dashed daily target */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-40">
+          {ticks.map((h) => (
+            <div key={h} className={cx("absolute inset-x-0 border-t", h ? "border-transparent" : "border-stone-300")} style={{ bottom: `${(h / topHours) * 100}%` }} />
+          ))}
+          <div className="absolute inset-x-0 z-[1] border-t border-dashed border-stone-400" style={{ bottom: `${(TARGET_HOURS / topHours) * 100}%` }}>
+            <span className="absolute right-0 -top-5 rounded bg-surface px-1 text-[11px] font-semibold text-stone-500">Target {TARGET_HOURS}h</span>
+          </div>
+        </div>
+        {/* No time at all in this period: say so instead of a row of empty bars */}
+        {total === 0 && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 z-[2] grid h-40 place-items-center">
+            <span className="rounded-full bg-surface px-3 py-1 text-xs font-semibold text-stone-500 ring-1 ring-stone-200">No time logged {mode === "week" && offset === 0 ? "this week yet" : "in this period"}</span>
+          </div>
+        )}
+        <div key={`${mode}${offset}${from}${to}`} className={cx("relative flex h-40 items-end", gap)} onMouseLeave={() => setHover(null)}>
           {days.map((secs, i) => (
             <div
               key={i}
@@ -161,13 +190,14 @@ function WeekChart({ entries, now }) {
             </div>
           ))}
         </div>
-        <div className={cx("mt-2 flex border-t border-stone-200 pt-2", gap)}>
+        <div className={cx("mt-2 flex", gap)}>
           {slots.map((d, i) => (
             <span key={d.start} className={cx("min-w-0 flex-1 text-center font-bold", slots.length > 10 ? "text-[10px]" : "text-[11px]", i === todayIdx ? "text-brand-600" : "text-stone-400")}>
               {d.label}
             </span>
           ))}
         </div>
+      </div>
       </div>
       )}
     </Card>
@@ -192,47 +222,54 @@ function workdayStreak(entries, holidays, now) {
   return streak;
 }
 
-const RECENT_SUBTASKS = 7;
+const CONTINUE_ROWS = 7;
 
-/** The newest subtasks assigned to you, with a link to the full list on My work. */
-function RecentSubtasks() {
-  const { items, index, me, memberById } = useStore();
-  const recent = items
-    .filter((s) => s.type === "subtask" && assigneesOf(s).includes(me.id))
-    .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
-    .slice(0, RECENT_SUBTASKS);
+/**
+ * The open subtasks you clocked on most recently, newest first, with your time on each and a
+ * play button to pick it straight back up.
+ */
+function ContinueWork({ entries, now }) {
+  const { index } = useStore();
+  const bySub = new Map();
+  for (const e of entries) {
+    const r = bySub.get(e.subtaskId) ?? { last: 0, secs: 0 };
+    r.last = Math.max(r.last, e.end ?? now);
+    r.secs += entrySeconds(e, now);
+    bySub.set(e.subtaskId, r);
+  }
+  const rows = [...bySub]
+    .map(([id, r]) => ({ sub: index.get(id), ...r }))
+    .filter((r) => r.sub && !isDone(r.sub))
+    .sort((a, b) => b.last - a.last)
+    .slice(0, CONTINUE_ROWS);
 
   return (
     <Card className="flex flex-col bg-gradient-to-br from-brand-50/70 via-surface to-surface p-5">
-      <SectionTitle icon={ListChecks} title="Recent subtasks">
+      <SectionTitle icon={ListChecks} title="Continue where you left off">
         <Button variant="ghost" size="sm" onClick={() => navigate("my")}>
-          View all <ArrowRight className="size-3.5" />
+          My work <ArrowRight className="size-3.5" />
         </Button>
       </SectionTitle>
-      {!recent.length ? (
-        <p className="py-8 text-center text-sm text-stone-400">No subtasks assigned to you yet.</p>
+      {!rows.length ? (
+        <p className="py-8 text-center text-sm text-stone-400">Nothing to continue yet.</p>
       ) : (
-        <ul className="stagger -mx-2 flex-1 space-y-0.5">
-          {recent.map((s) => {
-            const by = memberById.get(creatorOf(s));
-            return (
-              <li key={s.id}>
-                <button type="button" onClick={() => openItem(s.id)} className="group flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-brand-50/70">
-                  <StatusIcon status={s.status} className="size-[18px] shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className={cx("block truncate text-sm font-bold text-stone-800 group-hover:text-brand-700", isDone(s) && "!text-stone-400")}>
-                      <DoneName item={s}>{s.name}</DoneName>
-                    </span>
-                    <span className="block truncate text-xs text-stone-400">{pathLabel(index, s.id).replaceAll(" / ", " › ")}</span>
-                  </span>
-                  <span className="shrink-0 text-right text-[11px] leading-tight text-stone-400">
-                    {s.createdAt ? formatDate(s.createdAt) : ""}
-                    {by && <span className="block font-semibold text-stone-500">{by.id === me.id ? "by you" : `by ${by.name.split(" ")[0]}`}</span>}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+        <ul className="-mx-2 flex-1 space-y-0.5">
+          {rows.map(({ sub, last, secs }) => (
+            <li key={sub.id} className="flex items-center gap-3 rounded-xl px-2 py-1.5 hover:bg-brand-50/70">
+              <button type="button" onClick={() => openItem(sub.id)} className="group flex min-w-0 flex-1 items-center gap-3 text-left">
+                <StatusIcon status={sub.status} className="size-[18px] shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold text-stone-800 group-hover:text-brand-700">{sub.name}</span>
+                  <span className="block truncate text-xs text-stone-400">{pathLabel(index, sub.id).replaceAll(" / ", " › ")}</span>
+                </span>
+                <span className="shrink-0 text-right text-[11px] leading-tight text-stone-400 tabular-nums">
+                  <span className="block font-bold text-stone-700">{formatHours(secs)}</span>
+                  {timeAgo(last, now)}
+                </span>
+              </button>
+              <ClockButton subtask={sub} />
+            </li>
+          ))}
         </ul>
       )}
     </Card>
@@ -358,17 +395,17 @@ function PersonalDashboard() {
 
   return (
     <div ref={revealRef} className="@container reveal space-y-4">
-      <Hero name={me.name.split(" ")[0]} title="Here's your week so far">
+      <Hero name={me.name.split(" ")[0]}>
         {/* Same-size tiles, whatever each one holds */}
         <div className="grid w-full grid-cols-2 items-stretch gap-2.5 @3xl:w-[20rem]">
-        <HeroStat label="Today" value={formatHours(today)} live={running} />
-        <HeroStat label="Streak" icon={streak ? Fire : Flame} iconClass={streak ? "" : "text-white/40"} value={`${streak} ${streak === 1 ? "day" : "days"}`} />
+          <HeroStat label="Today" value={formatHours(today)} live={running} />
+          <HeroStat label="Streak" icon={streak ? Fire : Flame} iconClass={streak ? "" : "text-white/40"} value={`${streak} ${streak === 1 ? "day" : "days"}`} />
         </div>
       </Hero>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] [&>*]:min-w-0">
         <WeekChart entries={entries} now={now} />
-        <RecentSubtasks />
+        <ContinueWork entries={entries} now={now} />
       </div>
 
       {/* If there's no chart to show (no client with hours), Recent sessions takes the full width */}

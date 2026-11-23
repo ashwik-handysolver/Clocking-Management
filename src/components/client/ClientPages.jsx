@@ -92,7 +92,7 @@ export function WorkPage({ client, index, entries, team, projectId }) {
             {!tasks.length ? (
               <p className="py-4 text-center text-sm text-stone-400">{show === "done" ? "Nothing completed yet" : show === "open" ? "Nothing open" : "No tasks yet"}</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="divide-y divide-stone-100">
                 {tasks.map((t) => (
                   <TaskRow key={t.id} task={t} index={index} team={team} secsBySubtask={secsBySubtask} query={q} />
                 ))}
@@ -112,18 +112,18 @@ function TaskRow({ task, index, team, secsBySubtask, query }) {
   const expanded = open || (!!query && shown.length > 0);
 
   return (
-    <li className={cx("rounded-2xl transition", expanded ? "bg-brand-50/50 ring-1 ring-brand-100" : "bg-stone-50")}>
-      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={expanded} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl p-3 text-left hover:bg-brand-50/70">
+    <li>
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={expanded} className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2.5 text-left transition-colors hover:bg-stone-50">
         <StatusIcon status={task.status} className="size-[18px] shrink-0" />
         <span className={cx("min-w-0 flex-1 truncate text-sm font-bold text-stone-800", isDone(task) && "text-stone-400 line-through")}>{task.name}</span>
         <ChevronDown className={cx("size-4 shrink-0 text-stone-400 transition-transform", expanded && "rotate-180")} />
       </button>
       <Collapse open={expanded}>
-        <ul className="space-y-1 px-3 pb-3 pl-10">
+        <ul className="pb-2.5 pl-8">
           {!shown.length && <li className="py-1 text-xs text-stone-400">No subtasks</li>}
           {shown.map((s) => {
             return (
-              <li key={s.id} className="rounded-xl bg-surface px-3 py-2 ring-1 ring-stone-900/5">
+              <li key={s.id} className="py-1.5">
                 <span className={cx("block truncate text-sm font-semibold text-stone-800", isDone(s) && "text-stone-400 line-through")}>{s.name}</span>
               </li>
             );
@@ -273,11 +273,11 @@ export function HoursPage({ client, index, entries, team }) {
                   {formatDate(fromDateKey(d.key), { weekday: "long", day: "numeric", month: "short" })}
                   <span className="text-stone-600 tabular-nums">{formatHours(secondsIn(d.rows, 0, now + 1, now))}</span>
                 </h2>
-                <ul className="space-y-1.5">
+                <ul className="divide-y divide-stone-100">
                   {d.rows.map((e) => {
                     const l = line(e);
                     return (
-                      <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl bg-stone-50 p-3 @lg:flex-nowrap">
+                      <li key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-2.5 @lg:flex-nowrap">
                         <Avatar member={l.person} size="sm" />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-sm font-bold text-stone-800">{l.sub?.name ?? "Subtask"}</span>
@@ -429,7 +429,7 @@ export function ScreenshotsPage({ index, entries, team }) {
                       const url = urls.get(s.path);
                       return (
                         <li key={s.id}>
-                          <button type="button" onClick={() => setOpen(i)} className="group block w-full overflow-hidden rounded-2xl bg-stone-50 text-left ring-1 ring-stone-900/5 hover:ring-brand-300">
+                          <button type="button" onClick={() => setOpen(i)} className="group block w-full overflow-hidden rounded-2xl bg-stone-50 text-left transition hover:opacity-90">
                             <span className="block aspect-video bg-stone-200">
                               {url ? <img src={url} alt="" loading="lazy" className="size-full object-cover transition group-hover:scale-[1.02]" /> : <span className="block size-full animate-skeleton" />}
                             </span>

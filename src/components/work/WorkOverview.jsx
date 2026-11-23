@@ -3,14 +3,14 @@ import { ArrowDown, ArrowUp, Building } from "lucide-react";
 import { openItem } from "../../lib/router";
 import { formatHours, todayKey } from "../../lib/time";
 import { cycleStats } from "../../store/clientHours";
-import { ancestry, assigneesOf, clientCycle, descendants, isOverdue, liveItemIds, progressOf, rollupSeconds } from "../../store/model";
+import { ancestry, assigneesOf, clientCycle, descendants, liveItemIds, rollupSeconds } from "../../store/model";
 import { isAdmin } from "../../store/permissions";
 import { useStore } from "../../store/store";
 import { AvatarStack, Card, EmptyState, ADD_HINT, cx } from "../ui";
 
 /*
  * Clients & Projects overview: every client in one sortable table (projects, this cycle's hours,
- * progress, overdue work, team and time). A row opens the client.
+ * team and time). A row opens the client.
  * Time is the team's for the admin, your own for everyone else.
  */
 
@@ -50,16 +50,12 @@ export default function WorkOverview() {
   const [now] = useState(() => Date.now());
   const cycles = useCycles(admin ? teamEntries : [], now);
   const [sort, setSort] = useState({ key: "name", dir: 1 });
-  const today = todayKey();
 
   const rows = index.childrenOf(null).map((c) => {
     const all = descendants(index, c.id);
-    const prog = progressOf(index, c.id);
     return {
       c,
       projects: index.childrenOf(c.id).length,
-      prog,
-      overdue: all.filter((x) => isOverdue(x, today)).length,
       people: [...new Set(all.flatMap(assigneesOf))].map((id) => memberById.get(id)).filter(Boolean),
       secs: seconds.get(c.id) ?? 0,
       cycle: cycles.get(c.id),
@@ -70,8 +66,6 @@ export default function WorkOverview() {
     name: (r) => r.c.name.toLowerCase(),
     projects: (r) => r.projects,
     cycle: (r) => (r.cycle ? r.cycle.stats.pct : -1),
-    progress: (r) => r.prog.pct,
-    overdue: (r) => r.overdue,
     people: (r) => r.people.length,
     time: (r) => r.secs,
   };
@@ -108,34 +102,32 @@ export default function WorkOverview() {
 
   return (
     <div className="space-y-3">
-    <h2 className="px-1 text-lg font-extrabold tracking-tight text-stone-900">Clients</h2>
     <Card className="p-2 @md:p-3">
       <div className="overflow-x-auto">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead>
             <tr className="text-xs text-stone-500">
-              {head("name", "Client")}
+              {head("name", "Client", "min-w-52")}
               {head("projects", "Projects", "w-24 text-right")}
               {admin && head("cycle", "This cycle", "w-64")}
-              {head("progress", "Progress", "w-40")}
-              {head("overdue", "Overdue", "w-24 text-right")}
               {head("people", "Team", "w-32")}
               {head("time", admin ? "Team time" : "Your time", "w-28 text-right")}
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-100">
-            {rows.map(({ c, projects, prog, overdue, people, secs, cycle }) => (
-              <tr key={c.id} onClick={() => openItem(c.id)} className="cursor-pointer hover:bg-stone-50">
-                <td className="max-w-0 px-3 py-3">
+            {rows.map(({ c, projects, people, secs, cycle }) => (
+              // One line per client and a fixed height, so every row is the same size.
+              <tr key={c.id} onClick={() => openItem(c.id)} className="h-12 cursor-pointer hover:bg-stone-50">
+                <td className="max-w-0 px-3">
                   <span className="flex items-center gap-2">
-                    <span className="truncate font-medium text-stone-900">{c.name}</span>
+                    <span className="shrink-0 truncate font-medium text-stone-900">{c.name}</span>
                     {live.has(c.id) && <span title="Someone's clocked in here" className="size-1.5 shrink-0 rounded-full bg-emerald-500" />}
+                    {c.contactName && c.contactName !== c.name && <span className="min-w-0 truncate text-xs text-stone-400">{c.contactName}</span>}
                   </span>
-                  {c.contactName && c.contactName !== c.name && <span className="block truncate text-xs text-stone-500">{c.contactName}</span>}
                 </td>
-                <td className="px-3 py-3 text-right text-stone-600 tabular-nums">{projects}</td>
+                <td className="px-3 text-right text-stone-600 tabular-nums">{projects}</td>
                 {admin && (
-                  <td className="px-3 py-3">
+                  <td className="px-3">
                     {cycle ? (
                       <span className="flex items-center gap-2.5">
                         <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-100">
@@ -146,23 +138,16 @@ export default function WorkOverview() {
                         </span>
                       </span>
                     ) : (
-                      <span className="text-xs text-stone-400">No hours set</span>
+                      // Same slot as the hours on other rows, so the column lines up
+                      <span className="flex items-center gap-2.5">
+                        <span className="flex-1" />
+                        <span className="w-28 shrink-0 text-right text-xs whitespace-nowrap text-stone-400">No hours set</span>
+                      </span>
                     )}
                   </td>
                 )}
-                <td className="px-3 py-3">
-                  <span className="flex items-center gap-2.5">
-                    <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-stone-100">
-                      <span className={cx("block h-full rounded-full", prog.pct === 100 ? "bg-emerald-500" : "bg-brand-500")} style={{ width: `${prog.pct}%` }} />
-                    </span>
-                    <span className="w-12 shrink-0 text-right text-xs text-stone-500 tabular-nums">
-                      {prog.done}/{prog.total}
-                    </span>
-                  </span>
-                </td>
-                <td className={cx("px-3 py-3 text-right tabular-nums", overdue ? "font-medium text-red-600" : "text-stone-400")}>{overdue || "—"}</td>
-                <td className="px-3 py-3">{people.length ? <AvatarStack members={people} max={3} size="xs" /> : <span className="text-xs text-stone-400">—</span>}</td>
-                <td className="px-3 py-3 text-right font-medium text-stone-900 tabular-nums">{formatHours(secs)}</td>
+                <td className="px-3">{people.length ? <AvatarStack members={people} max={3} size="xs" /> : <span className="text-xs text-stone-400">—</span>}</td>
+                <td className="px-3 text-right font-medium text-stone-900 tabular-nums">{formatHours(secs)}</td>
               </tr>
             ))}
           </tbody>

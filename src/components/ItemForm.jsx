@@ -319,17 +319,11 @@ export default function ItemForm({ id, type: initialType = "client", contextId, 
                 <input value={autoPersonLabel} disabled className={inputClass} />
               </Field>
             )}
-            <Field label="Status">
+            {type !== "task" && <Field label="Status">
               <Select value={values.status} onChange={set("status")} options={statusChoices(editing?.status)} />
-            </Field>
-            <Field label="Priority">
-              <Select value={values.priority} onChange={set("priority")} options={PRIORITIES} />
-            </Field>
+            </Field>}
             <Field label="Due date" error={errors.due} hint={dueHint}>
               {dueInput}
-            </Field>
-            <Field label="Estimate (hours)" error={errors.estimate}>
-              <input type="number" min="0" step="0.25" value={values.estimate} onChange={set("estimate")} placeholder="e.g. 4" className={inputClass} />
             </Field>
             <Field label="Tags" className="sm:col-span-2">
               <TagInput value={values.tags} onChange={set("tags")} suggestions={tagSuggestions} />

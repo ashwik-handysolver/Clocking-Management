@@ -168,8 +168,9 @@ export function AvatarStack({ members, max = 4, size = "sm", ringClass = "ring-s
 
 /* ---------- Layout bits ---------- */
 
+/** A section container: a hairline border, no shadow. Use one per section; never nest them. */
 export function Card({ className, ...props }) {
-  return <div className={cx("rounded-3xl bg-surface shadow-soft ring-1 ring-stone-900/5", className)} {...props} />;
+  return <div className={cx("rounded-2xl bg-surface ring-1 ring-stone-200", className)} {...props} />;
 }
 
 /* ---------- Decorated cards: icon chip + tinted background + watermark icon ---------- */
@@ -184,25 +185,17 @@ export const TONE = {
   stone: { bg: "from-stone-50 via-surface to-surface", chip: "palette-fixed bg-stone-800 text-white", soft: "bg-stone-100 text-stone-500", mark: "text-stone-900/[0.04]", ring: "ring-stone-100" },
 };
 
-export function IconChip({ icon: Icon, tone = "brand", variant = "solid", size = "md", className }) {
-  const t = TONE[tone];
-  const s = { sm: "size-8 rounded-xl [&>svg]:size-4", md: "size-10 rounded-2xl [&>svg]:size-5", lg: "size-12 rounded-2xl [&>svg]:size-6" }[size];
-  return (
-    <span className={cx("grid shrink-0 place-items-center", s, variant === "solid" ? t.chip : t.soft, className)}>
-      <Icon strokeWidth={2.2} />
-    </span>
-  );
+/**
+ * A heading or stat icon: small and grey, with no coloured badge behind it.
+ * (`tone` and `variant` are accepted for existing callers but no longer change the look.)
+ */
+export function IconChip({ icon: Icon, size = "md", className }) {
+  return <Icon aria-hidden="true" strokeWidth={2} className={cx("shrink-0 text-stone-400", size === "lg" ? "size-5" : "size-4", className)} />;
 }
 
-/** Big faded icon tucked into a card corner. Parent needs `relative overflow-hidden`. */
-export function Watermark({ icon: Icon, tone = "brand", className }) {
-  return (
-    <Icon
-      aria-hidden="true"
-      strokeWidth={1.5}
-      className={cx("pointer-events-none absolute -right-5 -bottom-6 size-32 rotate-[-12deg]", TONE[tone].mark, className)}
-    />
-  );
+// Retired: cards no longer carry big decorative corner icons. Kept so existing callers still work.
+export function Watermark() {
+  return null;
 }
 
 /** Card with a soft tinted gradient and a watermark icon. */
@@ -289,7 +282,7 @@ export function EmptyState({ icon: Icon, title, text, action, className }) {
   return (
     <div className={cx("flex flex-col items-center px-6 py-12 text-center", className)}>
       {Icon && (
-        <span className="mb-4 grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-brand-50 to-brand-100 text-brand-500">
+        <span className="mb-3 grid place-items-center text-stone-300">
           <Icon className="size-6" />
         </span>
       )}
@@ -312,7 +305,7 @@ export function RequiredMark() {
 }
 
 export const inputClass =
-  "h-10 w-full rounded-xl border-0 bg-stone-50 px-3.5 text-sm text-stone-800 ring-1 ring-stone-200 outline-none transition placeholder:text-stone-400 hover:ring-stone-300 focus:bg-surface focus:ring-2 focus:ring-brand-500 disabled:text-stone-500";
+  "h-10 w-full rounded-xl border-0 bg-stone-100 px-3.5 text-sm text-stone-800 outline-none transition placeholder:text-stone-400 hover:bg-stone-200/70 focus:bg-surface focus:ring-2 focus:ring-brand-500 disabled:text-stone-500";
 
 /** A labelled form field. `required` adds a red star after the label. */
 export function Field({ label, hint, error, required, className, children }) {
@@ -646,7 +639,7 @@ export function Popover({ trigger, children, align = "right", side = "bottom", c
             style={pos}
             // Portal clicks still bubble through React parents (e.g. clickable rows); keep them here.
             onClick={(e) => e.stopPropagation()}
-            className={cx("fixed z-[1000] animate-pop rounded-2xl bg-surface p-1.5 text-stone-800 shadow-float ring-1 ring-stone-900/5", className)}
+            className={cx("fixed z-[1000] animate-pop rounded-2xl bg-surface p-1.5 text-stone-800 shadow-float", className)}
           >
             {children(() => setOpen(false))}
           </div>,

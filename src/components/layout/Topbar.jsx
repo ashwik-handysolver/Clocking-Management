@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, BellRing, ChevronDown, ChevronRight, LogOut, Menu, Moon, Pencil, Search, Square, Sun, Timer } from "lucide-react";
+import { Bell, BellRing, ChevronDown, ChevronRight, LogOut, Menu, Moon, Search, Square, Sun, Timer } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
 import { useTheme } from "../../hooks/useTheme";
 import { navigate, openItem } from "../../lib/router";
@@ -124,7 +124,7 @@ function ClockingAccent() {
   const { state, me } = useStore();
   if (!runningEntryOf(state.entries, me.id)) return null;
   return (
-    <span aria-hidden="true" className="pointer-events-none absolute inset-x-8 -bottom-px h-[3px] animate-fade-in overflow-hidden rounded-full bg-brand-500/15">
+    <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 -bottom-px h-[2px] animate-fade-in overflow-hidden rounded-full bg-brand-500/15">
       <span className="block h-full w-1/4 animate-sweep rounded-full bg-gradient-to-r from-transparent via-brand-500 to-transparent motion-reduce:animate-none" />
     </span>
   );
@@ -178,8 +178,8 @@ export default function Topbar({ selectedId, page, onOpenMenu }) {
     <>
       <header
         className={cx(
-          "sticky top-3 z-30 flex h-[68px] items-center gap-2 rounded-[22px] bg-surface/95 px-3 shadow-float ring-1 transition-[box-shadow] duration-500 sm:gap-3 sm:px-4",
-          clocking ? "ring-brand-200" : "ring-surface",
+          // Flat bar on the page itself: a hairline underneath instead of a floating card.
+          "sticky top-0 z-30 -mt-3 flex h-16 items-center gap-2 bg-canvas/90 px-1 backdrop-blur sm:gap-3",
         )}
       >
         <ClockingAccent />
@@ -238,19 +238,16 @@ function ProfileMenu() {
           aria-label="Profile menu"
           aria-expanded={open}
           className={cx(
-            "flex h-11 shrink-0 items-center gap-2 rounded-full p-0.5 transition xl:pr-3",
-            open ? "bg-brand-50 ring-2 ring-brand-300" : "hover:bg-stone-100 hover:ring-1 hover:ring-stone-200",
+            // Just the picture; name and role are inside the menu.
+            "flex shrink-0 items-center rounded-full p-0.5 transition",
+            open ? "ring-2 ring-brand-300" : "hover:ring-2 hover:ring-stone-200",
           )}
+          title={me.name}
         >
           <span className="relative">
-            <Avatar member={me} ring />
+            <Avatar member={me} />
             <span className={cx("absolute -right-0.5 -bottom-0.5 size-3 rounded-full ring-2 ring-surface", clocking ? "bg-emerald-500" : "bg-stone-300")} />
           </span>
-          <span className="hidden min-w-0 text-left leading-tight xl:block">
-            <span className="block max-w-32 truncate text-sm font-bold text-stone-800">{me.name.split(" ")[0]}</span>
-            <span className="block max-w-32 truncate text-[11px] font-semibold text-stone-400">{role}</span>
-          </span>
-          <ChevronDown className={cx("hidden size-4 text-stone-400 transition-transform xl:block", open && "rotate-180")} />
         </button>
       )}
     >
@@ -265,18 +262,6 @@ function ProfileMenu() {
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1.5 text-sm font-extrabold text-stone-900">
                   <span className="truncate">{me.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      close();
-                      navigate("account");
-                    }}
-                    aria-label="Edit your profile"
-                    title="Edit your profile"
-                    className="grid size-6 shrink-0 place-items-center rounded-full bg-surface/80 text-stone-500 ring-1 ring-stone-200 transition hover:bg-brand-500 hover:text-white hover:ring-brand-500"
-                  >
-                    <Pencil className="size-3" />
-                  </button>
                 </p>
                 <p className="truncate text-xs text-stone-500">{me.email}</p>
               </div>

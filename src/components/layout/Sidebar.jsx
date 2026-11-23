@@ -189,7 +189,8 @@ export default function Sidebar({ pinnedOpen, onTogglePinned, mobileOpen, onClos
         onMouseEnter={() => setHover(true, 60)}
         onMouseLeave={() => setHover(false, 160)}
         className={cx(
-          "palette-fixed fixed inset-y-3 left-3 z-50 flex w-72 flex-col overflow-hidden overscroll-contain rounded-[28px] bg-stone-950 p-3 text-stone-300 shadow-float",
+          // Attached to the screen edge, full height: part of the frame, not a floating card.
+          "palette-fixed fixed inset-y-0 left-0 z-50 flex w-72 flex-col overflow-hidden overscroll-contain bg-stone-950 p-3 text-stone-300",
           "bg-[radial-gradient(120%_60%_at_0%_0%,rgb(255_107_26/0.18),transparent_60%)]",
           "transition-[width,transform] duration-[450ms] ease-smooth [contain:layout_paint]",
           expanded ? "lg:w-64" : "lg:w-[84px]",

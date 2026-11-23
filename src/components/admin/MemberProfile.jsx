@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft, Briefcase, Calendar, Camera, ChevronLeft, ChevronRight, Clock, Copy, Crown, ListTodo, Mail,
+  ArrowLeft, Briefcase, Calendar, Camera, ChevronLeft, ChevronRight, Clock, Copy, Crown, Mail,
   Pencil, PencilLine, Plus, RotateCcw, Settings2, Timer, Trash, UserMinus, UserRound,
 } from "lucide-react";
 import { useNow } from "../../hooks/useNow";
@@ -16,7 +16,7 @@ import { Legend, StackedBars } from "../charts";
 import { useDialogs } from "../dialogs";
 import { CountUp, DoneName, useReveal } from "../motion";
 import { Avatar, Button, Card, EmptyState, IconChip, Popover, Select, StatusIcon, cx, inputClass } from "../ui";
-import { Hero, StatTile } from "../work/DashboardParts";
+import { Hero, StatStrip, StatTile } from "../work/DashboardParts";
 import { AdminPage, Segmented } from "./AdminPage";
 import { EditMember, sortedTeam, useMemberActions } from "./TeamPage";
 
@@ -82,6 +82,7 @@ export default function MemberProfile({ memberId }) {
   const [customFrom, setCustomFrom] = useState(() => toDateKey(monthStart(Date.now())));
   const [customTo, setCustomTo] = useState(() => todayKey());
   const [assigning, setAssigning] = useState(false);
+  const [detailTab, setDetailTab] = useState("projects"); // the tabbed card beside the chart
   const [editing, setEditing] = useState(false);
   const revealRef = useReveal();
 
@@ -304,13 +305,13 @@ export default function MemberProfile({ memberId }) {
             )}
             <Segmented label="Period" value={range} onChange={setRange} options={RANGES} size="sm" />
           </div>
-          <div className="grid gap-3 sm:grid-cols-[1fr_2fr]">
-            <StatTile key={`t-${rangeKey}`} icon={Timer} tone="brand" label={`Hours clocked · ${periodLabel}`} value={formatHours(total)} sub={`${sessions} clocking${sessions === 1 ? "" : "s"} · ${daysWorked} day${daysWorked === 1 ? "" : "s"}`} />
+          <StatStrip className="sm:grid-cols-[1fr_2fr]">
+            <StatTile bare key={`t-${rangeKey}`} icon={Timer} tone="brand" label={`Hours clocked · ${periodLabel}`} value={formatHours(total)} sub={`${sessions} clocking${sessions === 1 ? "" : "s"} · ${daysWorked} day${daysWorked === 1 ? "" : "s"}`} />
             <CompareCard key={`c-${rangeKey}`} name={member.name.split(" ")[0]} mine={daysWorked ? total / daysWorked : 0} team={teamAvg} />
-          </div>
+          </StatStrip>
         </div>
 
-        {/* Last 14 days, and where the time went */}
+        {/* Last 14 days beside one tabbed card: where the time went, their subtasks, their latest clockings */}
         <div className="grid gap-4 xl:grid-cols-[1.3fr_1fr]">
           {/* Clicking a month shows that month in the numbers above */}
           <HoursChart
@@ -322,7 +323,21 @@ export default function MemberProfile({ memberId }) {
             }}
           />
           <Card className="p-5">
-            <SectionTitle icon={Briefcase} title="Clients & projects" />
+            <div className="mb-4">
+              <Segmented
+                label="Show"
+                value={detailTab}
+                onChange={setDetailTab}
+                size="sm"
+                options={[
+                  ["projects", "Clients & projects"],
+                  ["subtasks", `Subtasks (${open.length})`],
+                  ["clockings", "Clockings"],
+                ]}
+              />
+            </div>
+            {detailTab === "projects" ? (
+              <>
             {projectRows.length ? (
               <>
                 <StackedBars rows={projectRows} />
@@ -333,16 +348,9 @@ export default function MemberProfile({ memberId }) {
             ) : (
               <p className="py-8 text-center text-sm text-stone-400">No time in this period.</p>
             )}
-          </Card>
-        </div>
-
-        {/* Their latest screenshots */}
-        <ShotsPreview member={member} />
-
-        {/* Their subtasks and latest clockings */}
-        <div className="grid gap-4 xl:grid-cols-2">
-          <Card className="p-5">
-            <SectionTitle icon={ListTodo} title={`Subtasks (${open.length} open)`} />
+              </>
+            ) : detailTab === "subtasks" ? (
+              <>
             {assigned.length ? (
               <ul className="-mx-2 max-h-96 space-y-0.5 overflow-y-auto scrollbar-thin" data-lenis-prevent>
                 {[...open, ...assigned.filter(isDone)].map((s) => {
@@ -366,10 +374,9 @@ export default function MemberProfile({ memberId }) {
             ) : (
               <p className="py-8 text-center text-sm text-stone-400">No subtasks assigned.</p>
             )}
-          </Card>
-
-          <Card className="p-5">
-            <SectionTitle icon={Timer} title="Latest clockings" />
+              </>
+            ) : (
+              <>
             {recent.length ? (
               <ul className="divide-y divide-stone-100">
                 {recent.map((e) => {
@@ -401,8 +408,13 @@ export default function MemberProfile({ memberId }) {
             ) : (
               <p className="py-8 text-center text-sm text-stone-400">No clockings yet.</p>
             )}
+              </>
+            )}
           </Card>
         </div>
+
+        {/* Their latest screenshots */}
+        <ShotsPreview member={member} />
 
       </div>
 
@@ -474,7 +486,7 @@ function CompareCard({ name, mine, team }) {
   const diff = mine - team;
   const flat = Math.abs(diff) < 60; // within a minute
   return (
-    <Card className="flex flex-wrap items-center gap-x-8 gap-y-3 p-4">
+    <div className="flex flex-wrap items-center gap-x-8 gap-y-3 bg-surface p-4">
       <div>
         <p className="text-xs font-bold tracking-wide text-stone-600 uppercase">{name} · per day</p>
         <p className="text-3xl font-black tracking-tight text-stone-900 tabular-nums">
@@ -495,7 +507,7 @@ function CompareCard({ name, mine, team }) {
           <CountUp text={formatHours(team)} />
         </p>
       </div>
-    </Card>
+    </div>
   );
 }
 

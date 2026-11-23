@@ -8,7 +8,7 @@ import { entryBilling, entrySeconds, pathLabel, workingMembers } from "../../sto
 import { useStore } from "../../store/store";
 import ClientHoursCard from "./ClientHoursCard";
 import ClientCyclesCard from "./ClientCyclesCard";
-import { Hero, StatTile } from "./DashboardParts";
+import { Hero, StatStrip, StatTile } from "./DashboardParts";
 import { Avatar, Card, IconChip, cx, inputClass } from "../ui";
 import { Segmented } from "../admin/AdminPage";
 import { useReveal } from "../motion";
@@ -54,6 +54,10 @@ function LiveNow({ team, entries, now: pageNow }) {
   const lastEnd = (id) => Math.max(0, ...entries.filter((e) => e.memberId === id && e.end).map((e) => e.end));
   // Clocked-in people first, longest session on top.
   const rows = [...team].sort((a, b) => (running.get(a.id)?.start ?? Infinity) - (running.get(b.id)?.start ?? Infinity));
+  // Only the people working are listed; everyone else folds into one line you can open.
+  const [showIdle, setShowIdle] = useState(false);
+  const idle = rows.length - running.size;
+  const shown = showIdle ? rows : rows.filter((m) => running.has(m.id));
 
   return (
     <Card className="bg-gradient-to-br from-emerald-50 via-surface to-surface p-5">
@@ -62,8 +66,9 @@ function LiveNow({ team, entries, now: pageNow }) {
           <span className="size-2 animate-pulse-dot rounded-full bg-emerald-500" /> Live
         </span>
       </SectionTitle>
+      {!running.size && <p className="py-1 text-sm text-stone-500">Nobody is clocked in right now.</p>}
       <ul className="divide-y divide-stone-100">
-        {rows.map((m) => {
+        {shown.map((m) => {
           const e = running.get(m.id);
           const sub = e ? index.get(e.subtaskId) : null;
           const last = lastEnd(m.id);
@@ -96,6 +101,11 @@ function LiveNow({ team, entries, now: pageNow }) {
           );
         })}
       </ul>
+      {idle > 0 && (
+        <button type="button" onClick={() => setShowIdle((v) => !v)} className="mt-1 w-full border-t border-stone-100 pt-2.5 text-left text-xs font-semibold text-stone-500 hover:text-stone-800">
+          {showIdle ? "Hide people not clocked in" : `${idle} not clocked in · show`}
+        </button>
+      )}
     </Card>
   );
 }
@@ -240,20 +250,21 @@ export default function AdminDashboard() {
 
   return (
     <div ref={revealRef} className="@container reveal space-y-4">
-      <Hero name={me.name.split(" ")[0]} title="Here's how the team is doing today" />
+      <Hero name={me.name.split(" ")[0]} />
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4 [&>*]:min-w-0">
-        <StatTile icon={Radio} tone="emerald" label="Clocked in now" value={`${live} / ${team.length}`} sub={live ? "Working right now" : "Nobody is clocked in"} />
-        <StatTile icon={Timer} tone="brand" label="Team hours this week" value={formatHours(total)} sub={`${formatDate(weekStart)} to today`} />
+      <StatStrip className="sm:grid-cols-2 xl:grid-cols-4">
+        <StatTile bare icon={Radio} tone="emerald" label="Clocked in now" value={`${live} / ${team.length}`} />
+        <StatTile bare icon={Timer} tone="brand" label="Team hours this week" value={formatHours(total)} sub={`${formatDate(weekStart)} to today`} />
         <StatTile
+          bare
           icon={BadgeDollarSign}
           tone="violet"
           label="Billable this week"
           value={formatHours(billable)}
           sub={total ? `${Math.round((billable / total) * 100)}% of team time` : "No time yet"}
         />
-        <StatTile icon={CircleSlash} tone="sky" label="Non-billable this week" value={formatHours(total - billable)} />
-      </div>
+        <StatTile bare icon={CircleSlash} tone="sky" label="Non-billable this week" value={formatHours(total - billable)} />
+      </StatStrip>
 
       {/* Client hours (accordion) beside who's on the clock; same height on wide screens */}
       <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] [&>*]:min-w-0">
